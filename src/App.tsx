@@ -10,6 +10,7 @@ import { Categorias } from './components/Categorias';
 import { Deportistas } from './components/Deportistas';
 import { Highlights } from './components/Highlights';
 import { News } from './components/News';
+import { GuiaPadres } from './components/GuiaPadres';
 import { Suscripciones } from './components/Suscripciones';
 import { Solicitudes } from './components/Solicitudes';
 import { Entrevistas } from './components/Entrevistas';
@@ -32,6 +33,7 @@ export default function App() {
       case 'deportistas': return <Deportistas />;
       case 'highlights': return <Highlights />;
       case 'news': return <News />;
+      case 'guiapadres': return <GuiaPadres />;
       case 'entrevistas': return <Entrevistas />;
       case 'suscripciones': return <Suscripciones activeTab="Entrenador" />;
       case 'solicitudes': return <Solicitudes />;
