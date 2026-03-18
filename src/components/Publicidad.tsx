@@ -86,10 +86,10 @@ export function Publicidad() {
         <>
           {/* Metrics Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard title="Ingresos Totales" value={`$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={DollarSign} trend="+15%" />
-            <StatCard title="Gasto Total" value={`$${totalSpent.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={TrendingUp} trend="+5%" />
-            <StatCard title="Presupuesto Asignado" value={`$${totalBudget.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={Activity} trend="0%" />
-            <StatCard title="Campañas Activas" value={activeCampaigns.toString()} icon={Eye} trend="+2" />
+            <StatCard title="Ingresos Totales" value={`$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={DollarSign} />
+            <StatCard title="Gasto Total" value={`$${totalSpent.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={TrendingUp} />
+            <StatCard title="Presupuesto Asignado" value={`$${totalBudget.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={Activity} />
+            <StatCard title="Campañas Activas" value={activeCampaigns.toString()} icon={Eye} />
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -166,6 +166,13 @@ export function Publicidad() {
                       </td>
                     </tr>
                   ))}
+                  {banners.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                        No hay campañas publicitarias.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -249,6 +256,13 @@ export function Publicidad() {
                       </td>
                     </tr>
                   ))}
+                  {clients.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                        No hay clientes registrados.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -792,20 +806,13 @@ function AIImageEditorModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function StatCard({ title, value, icon: Icon, trend }: { title: string, value: string, icon: any, trend: string }) {
-  const isPositive = trend.startsWith('+');
+function StatCard({ title, value, icon: Icon }: { title: string, value: string, icon: any }) {
   return (
     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col">
       <div className="flex justify-between items-start mb-4">
         <div className="p-2 bg-indigo-50 rounded-lg">
           <Icon className="w-6 h-6 text-indigo-600" />
         </div>
-        <span className={clsx(
-          "text-sm font-medium px-2 py-1 rounded-full",
-          isPositive ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-700"
-        )}>
-          {trend}
-        </span>
       </div>
       <h4 className="text-gray-500 text-sm font-medium">{title}</h4>
       <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>

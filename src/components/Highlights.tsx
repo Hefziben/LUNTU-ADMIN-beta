@@ -137,10 +137,26 @@ function NewHighlightModal({ onClose, onSave }: { onClose: () => void, onSave: (
   const [title, setTitle] = useState('');
   const [url, setUrl] = useState('');
   const [description, setDescription] = useState('');
+  const [athleteId, setAthleteId] = useState('');
+  const [athletes, setAthletes] = useState<any[]>([]);
+
+  useEffect(() => {
+    supabase.from('athletes').select('id, name').then(({ data }) => {
+        if (data) setAthletes(data);
+    });
+  }, []);
 
   const handleSave = () => {
-    if (!title || !url) return;
-    onSave({ title, url, description, views: '0', likes: '0', date_label: 'Hoy' });
+    if (!title || !url || !athleteId) return;
+    onSave({
+        title,
+        url,
+        description,
+        athlete_id: athleteId,
+        views: '0',
+        likes: '0',
+        date_label: new Date().toLocaleDateString()
+    });
   };
 
   return (
@@ -154,6 +170,20 @@ function NewHighlightModal({ onClose, onSave }: { onClose: () => void, onSave: (
         </div>
         
         <div className="p-6 space-y-4">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Atleta</label>
+            <select
+              value={athleteId}
+              onChange={(e) => setAthleteId(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            >
+              <option value="">Seleccionar Atleta...</option>
+              {athletes.map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">Título del Video</label>
             <input 
@@ -193,7 +223,7 @@ function NewHighlightModal({ onClose, onSave }: { onClose: () => void, onSave: (
           </button>
           <button 
             onClick={handleSave}
-            disabled={!title || !url}
+            disabled={!title || !url || !athleteId}
             className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Guardar Video

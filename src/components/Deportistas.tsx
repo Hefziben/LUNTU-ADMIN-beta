@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Star, TrendingUp, Award, ChevronDown, ChevronUp, Eye, EyeOff, X, Settings, Loader2 } from 'lucide-react';
+import { Star, TrendingUp, Award, ChevronDown, ChevronUp, Eye, EyeOff, X, Settings, Loader2, User } from 'lucide-react';
 import { clsx } from 'clsx';
 import { supabase } from '../lib/supabase';
 
-const sportsList = ['Todos', 'Fútbol', 'Tenis', 'Natación', 'Baloncesto', 'Béisbol', 'Karate', 'Gimnasia'];
-
 export function Deportistas() {
   const [deportistas, setDeportistas] = useState<any[]>([]);
+  const [sportsList, setSportsList] = useState<string[]>(['Todos']);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeSport, setActiveSport] = useState('Todos');
@@ -14,18 +13,26 @@ export function Deportistas() {
   const [selectedDeportista, setSelectedDeportista] = useState<any>(null);
 
   useEffect(() => {
-    fetchAthletes();
+    fetchData();
   }, []);
 
-  const fetchAthletes = async () => {
+  const fetchData = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('athletes')
-      .select('*, disciplines(label)')
-      .order('overall_score', { ascending: false });
+    const [athletesRes, disciplinesRes] = await Promise.all([
+        supabase
+          .from('athletes')
+          .select('*, disciplines(label)')
+          .order('overall_score', { ascending: false }),
+        supabase
+          .from('disciplines')
+          .select('label')
+    ]);
 
-    if (!error) {
-      setDeportistas(data || []);
+    if (!athletesRes.error) {
+      setDeportistas(athletesRes.data || []);
+    }
+    if (!disciplinesRes.error && disciplinesRes.data) {
+        setSportsList(['Todos', ...disciplinesRes.data.map(d => d.label)]);
     }
     setLoading(false);
   };

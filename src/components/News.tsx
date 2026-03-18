@@ -152,7 +152,14 @@ function NewNewsModal({ onClose, onSave }: { onClose: () => void, onSave: (news:
 
   const handleSave = () => {
     if (!title || !tag || !source || !image_url) return;
-    onSave({ title, tag, source, content, image_url, time_ago: 'Ahora' });
+    onSave({
+        title,
+        tag,
+        source,
+        content,
+        image_url,
+        time_ago: new Date().toLocaleDateString()
+    });
   };
 
   return (
