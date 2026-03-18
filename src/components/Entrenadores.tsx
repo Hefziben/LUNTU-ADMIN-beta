@@ -1,31 +1,50 @@
-import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, User, Mail, Phone, FileText, X, Search, Filter, CheckCircle2 } from 'lucide-react';
-
-const initialEntrenadores = [
-  { id: 1, name: 'Carlos Ruiz', email: 'carlos@luntu.com', phone: '+507 6123-4567', sport: 'Fútbol', athletes: 25, status: 'Activo' },
-  { id: 2, name: 'María Gómez', email: 'maria@luntu.com', phone: '+507 6987-6543', sport: 'Tenis', athletes: 12, status: 'Activo' },
-];
+import React, { useState, useEffect } from 'react';
+import { Plus, Edit2, Trash2, User, Mail, Phone, FileText, X, Search, Filter, CheckCircle2, Loader2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export function Entrenadores() {
-  const [entrenadores, setEntrenadores] = useState(initialEntrenadores);
+  const [entrenadores, setEntrenadores] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMessage, setToastMessage] = useState<{title: string, type: 'success' | 'error'} | null>(null);
+
+  useEffect(() => {
+    fetchCoaches();
+  }, []);
+
+  const fetchCoaches = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('coaches')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (!error) {
+      setEntrenadores(data || []);
+    }
+    setLoading(false);
+  };
 
   const showToast = (title: string, type: 'success' | 'error') => {
     setToastMessage({ title, type });
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleDelete = (id: number) => {
-    setEntrenadores(entrenadores.filter(e => e.id !== id));
-    showToast('Entrenador eliminado correctamente', 'success');
+  const handleDelete = async (id: string) => {
+    if (window.confirm('¿Eliminar entrenador?')) {
+      const { error } = await supabase.from('coaches').delete().eq('id', id);
+      if (!error) {
+        setEntrenadores(entrenadores.filter(e => e.id !== id));
+        showToast('Entrenador eliminado correctamente', 'success');
+      }
+    }
   };
 
   const filteredEntrenadores = entrenadores.filter(e => 
     e.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    e.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    e.sport.toLowerCase().includes(searchQuery.toLowerCase())
+    (e.email && e.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (e.role && e.role.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -60,7 +79,7 @@ export function Entrenadores() {
           </div>
           <input
             type="text"
-            placeholder="Buscar por nombre, email o deporte..."
+            placeholder="Buscar por nombre, email o especialidad..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors"
@@ -70,87 +89,92 @@ export function Entrenadores() {
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50/50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
-                <th className="px-6 py-4 font-semibold">Perfil</th>
-                <th className="px-6 py-4 font-semibold">Contacto</th>
-                <th className="px-6 py-4 font-semibold">Deporte</th>
-                <th className="px-6 py-4 font-semibold">Roster (Atletas)</th>
-                <th className="px-6 py-4 font-semibold">Estado</th>
-                <th className="px-6 py-4 font-semibold text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredEntrenadores.map((entrenador) => (
-                <tr key={entrenador.id} className="hover:bg-gray-50/50 transition-colors group">
-                  <td className="px-6 py-4 font-medium text-gray-900 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
-                      <User className="w-5 h-5" />
-                    </div>
-                    {entrenador.name}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col gap-1 text-sm text-gray-500">
-                      <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5 text-gray-400" /> {entrenador.email}</span>
-                      <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5 text-gray-400" /> {entrenador.phone}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
-                      {entrenador.sport}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-gray-500">{entrenador.athletes} atletas</td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                      entrenador.status === 'Activo' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {entrenador.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button title="Ver Contenido (Rutinas, Motivación)" className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors">
-                        <FileText className="w-4 h-4" />
-                      </button>
-                      <button className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors" title="Editar">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(entrenador.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+          {loading ? (
+            <div className="flex justify-center items-center py-20">
+              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50/50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                  <th className="px-6 py-4 font-semibold">Perfil</th>
+                  <th className="px-6 py-4 font-semibold">Contacto</th>
+                  <th className="px-6 py-4 font-semibold">Especialidad</th>
+                  <th className="px-6 py-4 font-semibold">Afiliación</th>
+                  <th className="px-6 py-4 font-semibold text-right">Acciones</th>
                 </tr>
-              ))}
-              {filteredEntrenadores.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center justify-center text-gray-500">
-                      <Filter className="w-8 h-8 mb-3 text-gray-400" />
-                      <p className="text-base font-medium text-gray-900">No se encontraron entrenadores</p>
-                      <p className="text-sm mt-1">No hay entrenadores que coincidan con la búsqueda.</p>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredEntrenadores.map((entrenador) => (
+                  <tr key={entrenador.id} className="hover:bg-gray-50/50 transition-colors group">
+                    <td className="px-6 py-4 font-medium text-gray-900 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0 overflow-hidden">
+                        {entrenador.image_url ? (
+                          <img src={entrenador.image_url} alt={entrenador.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <User className="w-5 h-5" />
+                        )}
+                      </div>
+                      {entrenador.name}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col gap-1 text-sm text-gray-500">
+                        <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5 text-gray-400" /> {entrenador.email}</span>
+                        <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5 text-gray-400" /> {entrenador.phone}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                        {entrenador.specialty || entrenador.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-gray-500 text-sm">{entrenador.affiliation}</td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button title="Ver Contenido" className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors">
+                          <FileText className="w-4 h-4" />
+                        </button>
+                        <button className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors" title="Editar">
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(entrenador.id)}
+                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filteredEntrenadores.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center justify-center text-gray-500">
+                        <Filter className="w-8 h-8 mb-3 text-gray-400" />
+                        <p className="text-base font-medium text-gray-900">No se encontraron entrenadores</p>
+                        <p className="text-sm mt-1">No hay entrenadores que coincidan con la búsqueda.</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
       {isModalOpen && (
         <NewEntrenadorModal 
           onClose={() => setIsModalOpen(false)} 
-          onSave={(newEntrenador) => {
-            setEntrenadores([{ ...newEntrenador, id: Date.now() }, ...entrenadores]);
-            setIsModalOpen(false);
-            showToast('Entrenador creado exitosamente', 'success');
+          onSave={async (newEntrenador) => {
+            const { data, error } = await supabase.from('coaches').insert([newEntrenador]).select();
+            if (!error && data) {
+              setEntrenadores([...entrenadores, data[0]]);
+              setIsModalOpen(false);
+              showToast('Entrenador creado exitosamente', 'success');
+            }
           }} 
         />
       )}
@@ -162,13 +186,12 @@ function NewEntrenadorModal({ onClose, onSave }: { onClose: () => void, onSave: 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [sport, setSport] = useState('Fútbol');
-  const [athletes, setAthletes] = useState('');
-  const [status, setStatus] = useState('Activo');
+  const [specialty, setSpecialty] = useState('Fútbol');
+  const [affiliation, setAffiliation] = useState('');
 
   const handleSave = () => {
     if (!name || !email) return;
-    onSave({ name, email, phone, sport, athletes: parseInt(athletes) || 0, status });
+    onSave({ name, email, phone, specialty, affiliation });
   };
 
   return (
@@ -217,10 +240,10 @@ function NewEntrenadorModal({ onClose, onSave }: { onClose: () => void, onSave: 
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Deporte</label>
+              <label className="block text-sm font-medium text-gray-700">Especialidad</label>
               <select 
-                value={sport}
-                onChange={(e) => setSport(e.target.value)}
+                value={specialty}
+                onChange={(e) => setSpecialty(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white transition-shadow"
               >
                 <option value="Fútbol">Fútbol</option>
@@ -234,26 +257,14 @@ function NewEntrenadorModal({ onClose, onSave }: { onClose: () => void, onSave: 
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Atletas en Roster</label>
+              <label className="block text-sm font-medium text-gray-700">Afiliación (Club/Colegio)</label>
               <input 
-                type="number" 
-                value={athletes}
-                onChange={(e) => setAthletes(e.target.value)}
-                placeholder="Ej: 25"
+                type="text"
+                value={affiliation}
+                onChange={(e) => setAffiliation(e.target.value)}
+                placeholder="Ej: Club Deportivo LUNTU"
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
               />
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700">Estado</label>
-              <select 
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white transition-shadow"
-              >
-                <option value="Activo">Activo</option>
-                <option value="Inactivo">Inactivo</option>
-              </select>
             </div>
           </div>
         </div>
