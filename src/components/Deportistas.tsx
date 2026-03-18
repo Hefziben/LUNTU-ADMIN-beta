@@ -1,35 +1,46 @@
-import React, { useState } from 'react';
-import { Star, TrendingUp, Award, ChevronDown, ChevronUp, Eye, EyeOff, X, Settings } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Star, TrendingUp, Award, ChevronDown, ChevronUp, Eye, EyeOff, X, Settings, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
-
-const initialDeportistas = [
-  { id: 1, name: 'Diego Martínez', sport: 'Fútbol', category: 'Sub-15', score: 98, highlight: 'Máximo goleador del torneo regional con 15 tantos.', image: 'https://images.unsplash.com/photo-1511886929837-354d827aae26?auto=format&fit=crop&q=80&w=150&h=150' },
-  { id: 2, name: 'Ana Silva', sport: 'Tenis', category: 'Juvenil', score: 95, highlight: 'Invicta en la temporada de verano, ganadora de 3 torneos.', image: 'https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?auto=format&fit=crop&q=80&w=150&h=150' },
-  { id: 3, name: 'Luis Pérez', sport: 'Natación', category: 'Infantil', score: 92, highlight: 'Récord nacional en 50m libres para su categoría.', image: 'https://images.unsplash.com/photo-1530549387789-4c1017266635?auto=format&fit=crop&q=80&w=150&h=150' },
-  { id: 4, name: 'Carlos Ruiz Jr.', sport: 'Fútbol', category: 'Sub-15', score: 90, highlight: 'Líder en asistencias de la liga.', image: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&q=80&w=150&h=150' },
-  { id: 5, name: 'María Gómez', sport: 'Baloncesto', category: 'Juvenil', score: 94, highlight: 'MVP del torneo intercolegial.', image: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&q=80&w=150&h=150' },
-];
+import { supabase } from '../lib/supabase';
 
 const sportsList = ['Todos', 'Fútbol', 'Tenis', 'Natación', 'Baloncesto', 'Béisbol', 'Karate', 'Gimnasia'];
 
 export function Deportistas() {
-  const [deportistas, setDeportistas] = useState(initialDeportistas);
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [deportistas, setDeportistas] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeSport, setActiveSport] = useState('Todos');
   const [isAlgoModalOpen, setIsAlgoModalOpen] = useState(false);
-  const [selectedDeportista, setSelectedDeportista] = useState<typeof initialDeportistas[0] | null>(null);
+  const [selectedDeportista, setSelectedDeportista] = useState<any>(null);
 
-  const handleRemoveHighlight = (id: number) => {
+  useEffect(() => {
+    fetchAthletes();
+  }, []);
+
+  const fetchAthletes = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('athletes')
+      .select('*, disciplines(label)')
+      .order('overall_score', { ascending: false });
+
+    if (!error) {
+      setDeportistas(data || []);
+    }
+    setLoading(false);
+  };
+
+  const handleRemoveHighlight = (id: string) => {
     setDeportistas(deportistas.filter(t => t.id !== id));
   };
 
-  const toggleExpand = (id: number) => {
+  const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
   };
 
   const filteredDeportistas = activeSport === 'Todos' 
     ? deportistas 
-    : deportistas.filter(t => t.sport === activeSport);
+    : deportistas.filter(t => t.disciplines?.label === activeSport);
 
   return (
     <div className="space-y-6">
@@ -67,82 +78,90 @@ export function Deportistas() {
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 text-gray-500 text-sm border-b border-gray-200">
-                <th className="pl-6 pr-4 py-4 font-medium w-20"></th>
-                <th className="px-6 py-4 font-medium">Atleta</th>
-                <th className="px-6 py-4 font-medium">Deporte</th>
-                <th className="px-6 py-4 font-medium">Categoría</th>
-                <th className="px-6 py-4 font-medium">Score</th>
-                <th className="px-6 py-4 font-medium text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredDeportistas.map((deportista) => (
-                <React.Fragment key={deportista.id}>
-                  <tr 
-                    className="hover:bg-gray-50 cursor-pointer transition-colors" 
-                    onClick={() => toggleExpand(deportista.id)}
-                  >
-                    <td className="pl-6 pr-4 py-4 w-20">
-                      <img src={deportista.image} alt={deportista.name} className="w-10 h-10 min-w-[40px] rounded-full object-cover border border-gray-200" referrerPolicy="no-referrer" />
-                    </td>
-                    <td className="px-6 py-4 font-bold text-gray-900">{deportista.name}</td>
-                    <td className="px-6 py-4 text-gray-500">{deportista.sport}</td>
-                    <td className="px-6 py-4 text-gray-500">{deportista.category}</td>
-                    <td className="px-6 py-4">
-                      <span className="bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 w-fit">
-                        <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
-                        {deportista.score}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end items-center gap-2">
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); setSelectedDeportista(deportista); }}
-                          className="bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-50 flex items-center gap-2"
-                        >
-                          <Eye className="w-4 h-4" /> <span className="hidden sm:inline">Ver Perfil</span>
-                        </button>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleRemoveHighlight(deportista.id); }}
-                          className="bg-white border border-red-200 text-red-600 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-red-50 flex items-center gap-2"
-                        >
-                          <EyeOff className="w-4 h-4" /> <span className="hidden sm:inline">Ocultar</span>
-                        </button>
-                        <button className="p-1.5 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 ml-2">
-                          {expandedId === deportista.id ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                  {expandedId === deportista.id && (
-                    <tr className="bg-indigo-50/50">
-                      <td colSpan={6} className="px-6 py-4">
-                        <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center pl-16">
-                          <div className="flex items-start gap-3 text-sm text-gray-700">
-                            <Award className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
-                            <div>
-                              <p className="font-semibold text-gray-900 mb-1">Mérito Destacado</p>
-                              <p>{deportista.highlight}</p>
-                            </div>
-                          </div>
+          {loading ? (
+            <div className="flex justify-center items-center py-20">
+              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50 text-gray-500 text-sm border-b border-gray-200">
+                  <th className="pl-6 pr-4 py-4 font-medium w-20"></th>
+                  <th className="px-6 py-4 font-medium">Atleta</th>
+                  <th className="px-6 py-4 font-medium">Deporte</th>
+                  <th className="px-6 py-4 font-medium">Categoría</th>
+                  <th className="px-6 py-4 font-medium">Score</th>
+                  <th className="px-6 py-4 font-medium text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredDeportistas.map((deportista) => (
+                  <React.Fragment key={deportista.id}>
+                    <tr
+                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      onClick={() => toggleExpand(deportista.id)}
+                    >
+                      <td className="pl-6 pr-4 py-4 w-20">
+                        <div className="w-10 h-10 min-w-[40px] rounded-full bg-gray-200 flex items-center justify-center border border-gray-200 overflow-hidden">
+                           <User className="w-6 h-6 text-gray-400" />
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 font-bold text-gray-900">{deportista.name}</td>
+                      <td className="px-6 py-4 text-gray-500">{deportista.disciplines?.label}</td>
+                      <td className="px-6 py-4 text-gray-500">{deportista.position}</td>
+                      <td className="px-6 py-4">
+                        <span className="bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 w-fit">
+                          <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                          {deportista.overall_score}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end items-center gap-2">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setSelectedDeportista(deportista); }}
+                            className="bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-50 flex items-center gap-2"
+                          >
+                            <Eye className="w-4 h-4" /> <span className="hidden sm:inline">Ver Perfil</span>
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleRemoveHighlight(deportista.id); }}
+                            className="bg-white border border-red-200 text-red-600 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-red-50 flex items-center gap-2"
+                          >
+                            <EyeOff className="w-4 h-4" /> <span className="hidden sm:inline">Ocultar</span>
+                          </button>
+                          <button className="p-1.5 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 ml-2">
+                            {expandedId === deportista.id ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                          </button>
                         </div>
                       </td>
                     </tr>
-                  )}
-                </React.Fragment>
-              ))}
-              {filteredDeportistas.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                    No hay deportistas destacados para {activeSport.toLowerCase()}.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                    {expandedId === deportista.id && (
+                      <tr className="bg-indigo-50/50">
+                        <td colSpan={6} className="px-6 py-4">
+                          <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center pl-16">
+                            <div className="flex items-start gap-3 text-sm text-gray-700">
+                              <Award className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
+                              <div>
+                                <p className="font-semibold text-gray-900 mb-1">Biografía / Info</p>
+                                <p>{deportista.bio}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
+                {filteredDeportistas.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                      No hay deportistas destacados para {activeSport.toLowerCase()}.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
@@ -169,7 +188,6 @@ function AlgorithmModal({ onClose }: { onClose: () => void }) {
   });
 
   const handleSave = () => {
-    // In a real app, save these weights to the backend
     onClose();
   };
 
@@ -277,7 +295,7 @@ function AlgorithmModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function PerfilDeportistaModal({ deportista, onClose }: { deportista: typeof initialDeportistas[0], onClose: () => void }) {
+function PerfilDeportistaModal({ deportista, onClose }: { deportista: any, onClose: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col">
@@ -292,18 +310,15 @@ function PerfilDeportistaModal({ deportista, onClose }: { deportista: typeof ini
         
         <div className="px-8 pb-8">
           <div className="relative flex justify-between items-end -mt-12 mb-6">
-            <img 
-              src={deportista.image} 
-              alt={deportista.name} 
-              className="w-24 h-24 flex-shrink-0 rounded-full object-cover border-4 border-white shadow-md bg-white"
-              referrerPolicy="no-referrer"
-            />
+            <div className="w-24 h-24 flex-shrink-0 rounded-full bg-gray-100 flex items-center justify-center border-4 border-white shadow-md">
+                <User className="w-12 h-12 text-gray-400" />
+            </div>
             <div className="flex gap-3">
               <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-sm font-medium border border-indigo-100">
-                {deportista.sport}
+                {deportista.disciplines?.label}
               </span>
               <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium border border-gray-200">
-                {deportista.category}
+                {deportista.position}
               </span>
             </div>
           </div>
@@ -313,7 +328,7 @@ function PerfilDeportistaModal({ deportista, onClose }: { deportista: typeof ini
             <div className="flex items-center gap-2 mt-2">
               <span className="bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full text-sm font-bold flex items-center gap-1 w-fit">
                 <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
-                Score LUNTU: {deportista.score}
+                Score LUNTU: {deportista.overall_score}
               </span>
             </div>
           </div>
@@ -322,29 +337,29 @@ function PerfilDeportistaModal({ deportista, onClose }: { deportista: typeof ini
             <div className="bg-indigo-50/50 rounded-xl p-5 border border-indigo-100">
               <h3 className="text-sm font-bold text-indigo-900 uppercase tracking-wider mb-2 flex items-center gap-2">
                 <Award className="w-4 h-4 text-indigo-500" />
-                Mérito Destacado
+                Biografía
               </h3>
               <p className="text-gray-700 leading-relaxed">
-                {deportista.highlight}
+                {deportista.bio}
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="border border-gray-200 rounded-xl p-4">
-                <h4 className="text-sm font-medium text-gray-500 mb-1">Estadísticas de Juego</h4>
-                <p className="text-lg font-bold text-gray-900">Sobresaliente</p>
+                <h4 className="text-sm font-medium text-gray-500 mb-1">Edad</h4>
+                <p className="text-lg font-bold text-gray-900">{deportista.age} años</p>
               </div>
               <div className="border border-gray-200 rounded-xl p-4">
-                <h4 className="text-sm font-medium text-gray-500 mb-1">Asistencia</h4>
-                <p className="text-lg font-bold text-gray-900">98%</p>
+                <h4 className="text-sm font-medium text-gray-500 mb-1">Escuela</h4>
+                <p className="text-lg font-bold text-gray-900">{deportista.school}</p>
               </div>
               <div className="border border-gray-200 rounded-xl p-4">
-                <h4 className="text-sm font-medium text-gray-500 mb-1">Evaluación Entrenador</h4>
-                <p className="text-lg font-bold text-gray-900">Excelente</p>
+                <h4 className="text-sm font-medium text-gray-500 mb-1">Altura</h4>
+                <p className="text-lg font-bold text-gray-900">{deportista.height} cm</p>
               </div>
               <div className="border border-gray-200 rounded-xl p-4">
-                <h4 className="text-sm font-medium text-gray-500 mb-1">Votación Compañeros</h4>
-                <p className="text-lg font-bold text-gray-900">Positiva</p>
+                <h4 className="text-sm font-medium text-gray-500 mb-1">Peso</h4>
+                <p className="text-lg font-bold text-gray-900">{deportista.weight} kg</p>
               </div>
             </div>
           </div>

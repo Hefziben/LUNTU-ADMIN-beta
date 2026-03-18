@@ -1,18 +1,48 @@
-import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Calendar, X, Image as ImageIcon, BookOpen, Tag } from 'lucide-react';
-
-const initialGuides = [
-  { id: 1, title: 'Cómo apoyar a tu hijo después de una derrota', category: 'Psicología', date: '2026-03-02', author: 'Dra. María Gómez', status: 'Publicado', image: 'https://picsum.photos/seed/padres1/800/400', content: 'Es fundamental entender que la derrota es parte del proceso de aprendizaje...' },
-  { id: 2, title: 'Nutrición pre-competencia: Qué deben comer', category: 'Nutrición', date: '2026-03-06', author: 'Lic. Juan Pérez', status: 'Borrador', image: 'https://picsum.photos/seed/padres2/800/400', content: 'Una correcta alimentación antes de competir puede marcar la diferencia en el rendimiento...' },
-  { id: 3, title: 'Equilibrando los estudios y el deporte de alto rendimiento', category: 'Educación', date: '2026-03-08', author: 'Equipo LUNTU', status: 'Publicado', image: 'https://picsum.photos/seed/padres3/800/400', content: 'Consejos prácticos para ayudar a los jóvenes atletas a mantener buenas calificaciones sin descuidar sus entrenamientos...' },
-];
+import React, { useState, useEffect } from 'react';
+import { Plus, Edit2, Trash2, Calendar, X, Image as ImageIcon, BookOpen, Tag, Loader2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export function GuiaPadres() {
-  const [guides, setGuides] = useState(initialGuides);
+  const [guides, setGuides] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const handleDelete = (id: number) => {
-    setGuides(guides.filter(g => g.id !== id));
+  useEffect(() => {
+    fetchGuides();
+  }, []);
+
+  const fetchGuides = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('guia_padres')
+      .select('*')
+      .order('fecha', { ascending: false });
+
+    if (!error) {
+      setGuides(data || []);
+    }
+    setLoading(false);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (window.confirm('¿Estás seguro de eliminar este artículo?')) {
+      const { error } = await supabase.from('guia_padres').delete().eq('id', id);
+      if (!error) {
+        setGuides(guides.filter(g => g.id !== id));
+      }
+    }
+  };
+
+  const handleSave = async (newGuide: any) => {
+    const { data, error } = await supabase
+      .from('guia_padres')
+      .insert([newGuide])
+      .select();
+
+    if (!error && data) {
+      setGuides([data[0], ...guides]);
+      setIsModalOpen(false);
+    }
   };
 
   return (
@@ -33,76 +63,79 @@ export function GuiaPadres() {
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 text-gray-500 text-sm border-b border-gray-200">
-                <th className="px-6 py-4 font-medium">Imagen</th>
-                <th className="px-6 py-4 font-medium">Título</th>
-                <th className="px-6 py-4 font-medium">Categoría</th>
-                <th className="px-6 py-4 font-medium">Fecha</th>
-                <th className="px-6 py-4 font-medium">Estado</th>
-                <th className="px-6 py-4 font-medium text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {guides.map((guide) => (
-                <tr key={guide.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <img src={guide.image} alt={guide.title} className="w-16 h-16 object-cover rounded-lg border border-gray-200" referrerPolicy="no-referrer" />
-                  </td>
-                  <td className="px-6 py-4 font-medium text-gray-900 max-w-xs truncate" title={guide.title}>{guide.title}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                      <Tag className="w-3.5 h-3.5" />
-                      {guide.category}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-gray-500 text-sm">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3" /> {guide.date}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                      guide.status === 'Publicado' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {guide.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(guide.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+          {loading ? (
+            <div className="flex justify-center items-center py-20">
+              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50 text-gray-500 text-sm border-b border-gray-200">
+                  <th className="px-6 py-4 font-medium">Imagen</th>
+                  <th className="px-6 py-4 font-medium">Título</th>
+                  <th className="px-6 py-4 font-medium">Categoría</th>
+                  <th className="px-6 py-4 font-medium">Fecha</th>
+                  <th className="px-6 py-4 font-medium">Estado</th>
+                  <th className="px-6 py-4 font-medium text-right">Acciones</th>
                 </tr>
-              ))}
-              {guides.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                    No hay artículos publicados en la guía para padres.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {guides.map((guide) => (
+                  <tr key={guide.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <img src={guide.imagen_url} alt={guide.titulo} className="w-16 h-16 object-cover rounded-lg border border-gray-200" referrerPolicy="no-referrer" />
+                    </td>
+                    <td className="px-6 py-4 font-medium text-gray-900 max-w-xs truncate" title={guide.titulo}>{guide.titulo}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                        <Tag className="w-3.5 h-3.5" />
+                        {guide.categoria}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-gray-500 text-sm">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" /> {guide.fecha}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                        guide.estado === 'Publicado' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {guide.estado}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50">
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(guide.id)}
+                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {guides.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                      No hay artículos publicados en la guía para padres.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
       {isModalOpen && (
         <NewGuideModal 
           onClose={() => setIsModalOpen(false)} 
-          onSave={(newGuide) => {
-            setGuides([{ ...newGuide, id: Date.now() }, ...guides]);
-            setIsModalOpen(false);
-          }} 
+          onSave={handleSave}
         />
       )}
     </div>
@@ -110,28 +143,28 @@ export function GuiaPadres() {
 }
 
 function NewGuideModal({ onClose, onSave }: { onClose: () => void, onSave: (guide: any) => void }) {
-  const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('Psicología');
-  const [author, setAuthor] = useState('');
-  const [date, setDate] = useState('');
-  const [status, setStatus] = useState('Borrador');
-  const [content, setContent] = useState('');
-  const [image, setImage] = useState<string | null>(null);
+  const [titulo, setTitulo] = useState('');
+  const [categoria, setCategoria] = useState('Psicología');
+  const [autor, setAutor] = useState('');
+  const [fecha, setFecha] = useState('');
+  const [estado, setEstado] = useState('Borrador');
+  const [contenido, setContenido] = useState('');
+  const [imagen_url, setImagenUrl] = useState<string | null>(null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImage(reader.result as string);
+        setImagenUrl(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleSave = () => {
-    if (!title || !category || !author || !date || !image || !content) return;
-    onSave({ title, category, author, date, status, content, image });
+    if (!titulo || !categoria || !autor || !fecha || !imagen_url || !contenido) return;
+    onSave({ titulo, categoria, autor, fecha, estado, contenido, imagen_url });
   };
 
   return (
@@ -152,8 +185,8 @@ function NewGuideModal({ onClose, onSave }: { onClose: () => void, onSave: (guid
             <label className="block text-sm font-medium text-gray-700">Título del Artículo</label>
             <input 
               type="text" 
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              value={titulo}
+              onChange={(e) => setTitulo(e.target.value)}
               placeholder="Ej: Cómo apoyar a tu hijo..."
               className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
             />
@@ -163,8 +196,8 @@ function NewGuideModal({ onClose, onSave }: { onClose: () => void, onSave: (guid
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">Categoría</label>
               <select 
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
+                value={categoria}
+                onChange={(e) => setCategoria(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
               >
                 <option value="Psicología">Psicología</option>
@@ -179,8 +212,8 @@ function NewGuideModal({ onClose, onSave }: { onClose: () => void, onSave: (guid
               <label className="block text-sm font-medium text-gray-700">Autor</label>
               <input 
                 type="text" 
-                value={author}
-                onChange={(e) => setAuthor(e.target.value)}
+                value={autor}
+                onChange={(e) => setAutor(e.target.value)}
                 placeholder="Ej: Dra. María Gómez"
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
               />
@@ -192,16 +225,16 @@ function NewGuideModal({ onClose, onSave }: { onClose: () => void, onSave: (guid
               <label className="block text-sm font-medium text-gray-700">Fecha</label>
               <input 
                 type="date" 
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
+                value={fecha}
+                onChange={(e) => setFecha(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
               />
             </div>
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">Estado</label>
               <select 
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
+                value={estado}
+                onChange={(e) => setEstado(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
               >
                 <option value="Borrador">Borrador</option>
@@ -213,8 +246,8 @@ function NewGuideModal({ onClose, onSave }: { onClose: () => void, onSave: (guid
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">Contenido del Artículo</label>
             <textarea 
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
+              value={contenido}
+              onChange={(e) => setContenido(e.target.value)}
               placeholder="Escribe el contenido del artículo aquí..."
               rows={6}
               className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-y"
@@ -230,8 +263,8 @@ function NewGuideModal({ onClose, onSave }: { onClose: () => void, onSave: (guid
                 onChange={handleImageUpload}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
-              {image ? (
-                <img src={image} alt="Preview" className="max-h-40 mx-auto rounded-lg object-contain" />
+              {imagen_url ? (
+                <img src={imagen_url} alt="Preview" className="max-h-40 mx-auto rounded-lg object-contain" />
               ) : (
                 <div className="flex flex-col items-center text-gray-500">
                   <ImageIcon className="w-8 h-8 mb-2 text-gray-400" />
@@ -248,7 +281,7 @@ function NewGuideModal({ onClose, onSave }: { onClose: () => void, onSave: (guid
           </button>
           <button 
             onClick={handleSave}
-            disabled={!title || !category || !author || !date || !image || !content}
+            disabled={!titulo || !categoria || !autor || !fecha || !imagen_url || !contenido}
             className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Guardar Artículo
