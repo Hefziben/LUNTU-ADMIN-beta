@@ -186,8 +186,18 @@ function NewEntrenadorModal({ onClose, onSave }: { onClose: () => void, onSave: 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [specialty, setSpecialty] = useState('Fútbol');
+  const [specialty, setSpecialty] = useState('');
   const [affiliation, setAffiliation] = useState('');
+  const [disciplines, setDisciplines] = useState<any[]>([]);
+
+  useEffect(() => {
+    supabase.from('disciplines').select('label').then(({ data }) => {
+        if (data) {
+            setDisciplines(data);
+            if (data.length > 0) setSpecialty(data[0].label);
+        }
+    });
+  }, []);
 
   const handleSave = () => {
     if (!name || !email) return;
@@ -246,13 +256,9 @@ function NewEntrenadorModal({ onClose, onSave }: { onClose: () => void, onSave: 
                 onChange={(e) => setSpecialty(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white transition-shadow"
               >
-                <option value="Fútbol">Fútbol</option>
-                <option value="Béisbol">Béisbol</option>
-                <option value="Baloncesto">Baloncesto</option>
-                <option value="Tenis">Tenis</option>
-                <option value="Natación">Natación</option>
-                <option value="Karate">Karate</option>
-                <option value="Gimnasia">Gimnasia</option>
+                {disciplines.map(d => (
+                  <option key={d.label} value={d.label}>{d.label}</option>
+                ))}
               </select>
             </div>
 

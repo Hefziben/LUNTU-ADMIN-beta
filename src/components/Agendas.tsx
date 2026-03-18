@@ -200,10 +200,25 @@ function NewAgendaModal({ defaultRole, onClose, onSave }: { defaultRole: string,
   const [time_label, setTimeLabel] = useState('');
   const [location, setLocation] = useState('');
   const [type, setType] = useState(defaultRole);
+  const [coachId, setCoachId] = useState('');
+  const [coaches, setCoaches] = useState<any[]>([]);
+
+  useEffect(() => {
+    supabase.from('coaches').select('id, name').then(({ data }) => {
+        if (data) setCoaches(data);
+    });
+  }, []);
 
   const handleSave = () => {
     if (!title || !date_label || !time_label || !location) return;
-    onSave({ title, date_label, time_label, location, type });
+    onSave({
+        title,
+        date_label,
+        time_label,
+        location,
+        type,
+        coach_id: coachId || null
+    });
   };
 
   return (
@@ -227,6 +242,20 @@ function NewAgendaModal({ defaultRole, onClose, onSave }: { defaultRole: string,
                 placeholder="Ej: Entrenamiento Sub-15"
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
               />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">Creador (Entrenador)</label>
+              <select
+                value={coachId}
+                onChange={(e) => setCoachId(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white transition-shadow"
+              >
+                <option value="">Administrador</option>
+                {coaches.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-2">

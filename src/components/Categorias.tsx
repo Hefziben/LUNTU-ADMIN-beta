@@ -170,8 +170,18 @@ export function Categorias() {
 
 function NewCategoriaModal({ onClose, onSave }: { onClose: () => void, onSave: (cat: any) => void }) {
   const [nombre, setNombre] = useState('');
-  const [deporte, setDeporte] = useState('Fútbol');
+  const [deporte, setDeporte] = useState('');
   const [atletas_count, setAtletasCount] = useState('');
+  const [disciplines, setDisciplines] = useState<any[]>([]);
+
+  useEffect(() => {
+    supabase.from('disciplines').select('label').then(({ data }) => {
+        if (data) {
+            setDisciplines(data);
+            if (data.length > 0) setDeporte(data[0].label);
+        }
+    });
+  }, []);
 
   const handleSave = () => {
     if (!nombre) return;
@@ -207,13 +217,9 @@ function NewCategoriaModal({ onClose, onSave }: { onClose: () => void, onSave: (
               onChange={(e) => setDeporte(e.target.value)}
               className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
             >
-              <option value="Fútbol">Fútbol</option>
-              <option value="Béisbol">Béisbol</option>
-              <option value="Baloncesto">Baloncesto</option>
-              <option value="Tenis">Tenis</option>
-              <option value="Natación">Natación</option>
-              <option value="Karate">Karate</option>
-              <option value="Gimnasia">Gimnasia</option>
+              {disciplines.map(d => (
+                <option key={d.label} value={d.label}>{d.label}</option>
+              ))}
             </select>
           </div>
 

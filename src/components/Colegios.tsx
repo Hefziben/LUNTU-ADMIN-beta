@@ -191,9 +191,19 @@ export function Colegios() {
 
 function NewColegioModal({ onClose, onSave }: { onClose: () => void, onSave: (colegio: any) => void }) {
   const [nombre, setNombre] = useState('');
-  const [deporte_principal, setDeportePrincipal] = useState('Fútbol');
+  const [deporte_principal, setDeportePrincipal] = useState('');
   const [miembros, setMiembros] = useState('');
   const [estado, setEstado] = useState('Activo');
+  const [disciplines, setDisciplines] = useState<any[]>([]);
+
+  useEffect(() => {
+    supabase.from('disciplines').select('label').then(({ data }) => {
+        if (data) {
+            setDisciplines(data);
+            if (data.length > 0) setDeportePrincipal(data[0].label);
+        }
+    });
+  }, []);
 
   const handleSave = () => {
     if (!nombre || !miembros) return;
@@ -229,13 +239,9 @@ function NewColegioModal({ onClose, onSave }: { onClose: () => void, onSave: (co
               onChange={(e) => setDeportePrincipal(e.target.value)}
               className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white transition-shadow"
             >
-              <option value="Fútbol">Fútbol</option>
-              <option value="Béisbol">Béisbol</option>
-              <option value="Baloncesto">Baloncesto</option>
-              <option value="Tenis">Tenis</option>
-              <option value="Natación">Natación</option>
-              <option value="Karate">Karate</option>
-              <option value="Gimnasia">Gimnasia</option>
+              {disciplines.map(d => (
+                <option key={d.label} value={d.label}>{d.label}</option>
+              ))}
             </select>
           </div>
 
