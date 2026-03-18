@@ -1,31 +1,57 @@
-import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, GraduationCap, X, Search, Filter, CheckCircle2 } from 'lucide-react';
-
-const initialColegios = [
-  { id: 1, name: 'Colegio San Agustín', sport: 'Fútbol', members: 350, status: 'Activo' },
-  { id: 2, name: 'Instituto Panamericano', sport: 'Baloncesto', members: 200, status: 'Activo' },
-  { id: 3, name: 'Colegio Brader', sport: 'Natación', members: 150, status: 'Inactivo' },
-];
+import React, { useState, useEffect } from 'react';
+import { Plus, Edit2, Trash2, GraduationCap, X, Search, Filter, CheckCircle2, Loader2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export function Colegios() {
-  const [colegios, setColegios] = useState(initialColegios);
+  const [colegios, setColegios] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMessage, setToastMessage] = useState<{title: string, type: 'success' | 'error'} | null>(null);
+
+  useEffect(() => {
+    fetchColegios();
+  }, []);
+
+  const fetchColegios = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('colegios')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      showToast('Error al cargar colegios', 'error');
+    } else {
+      setColegios(data || []);
+    }
+    setLoading(false);
+  };
 
   const showToast = (title: string, type: 'success' | 'error') => {
     setToastMessage({ title, type });
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleDelete = (id: number) => {
-    setColegios(colegios.filter(c => c.id !== id));
-    showToast('Colegio eliminado correctamente', 'success');
+  const handleDelete = async (id: number) => {
+    if (!window.confirm('¿Estás seguro de eliminar este colegio?')) return;
+
+    const { error } = await supabase
+      .from('colegios')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      showToast('Error al eliminar colegio', 'error');
+    } else {
+      setColegios(colegios.filter(c => c.id !== id));
+      showToast('Colegio eliminado correctamente', 'success');
+    }
   };
 
   const filteredColegios = colegios.filter(c => 
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    c.sport.toLowerCase().includes(searchQuery.toLowerCase())
+    c.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (c.deporte_principal && c.deporte_principal.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -70,77 +96,92 @@ export function Colegios() {
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50/50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
-                <th className="px-6 py-4 font-semibold">Nombre del Colegio</th>
-                <th className="px-6 py-4 font-semibold">Deporte Principal</th>
-                <th className="px-6 py-4 font-semibold">Miembros</th>
-                <th className="px-6 py-4 font-semibold">Estado</th>
-                <th className="px-6 py-4 font-semibold text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredColegios.map((colegio) => (
-                <tr key={colegio.id} className="hover:bg-gray-50/50 transition-colors group">
-                  <td className="px-6 py-4 font-medium text-gray-900 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
-                      <GraduationCap className="w-5 h-5" />
-                    </div>
-                    {colegio.name}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
-                      {colegio.sport}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-gray-500">{colegio.members} atletas</td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                      colegio.status === 'Activo' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {colegio.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors" title="Editar">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(colegio.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+          {loading ? (
+            <div className="flex justify-center items-center py-20">
+              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50/50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                  <th className="px-6 py-4 font-semibold">Nombre del Colegio</th>
+                  <th className="px-6 py-4 font-semibold">Deporte Principal</th>
+                  <th className="px-6 py-4 font-semibold">Miembros</th>
+                  <th className="px-6 py-4 font-semibold">Estado</th>
+                  <th className="px-6 py-4 font-semibold text-right">Acciones</th>
                 </tr>
-              ))}
-              {filteredColegios.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center justify-center text-gray-500">
-                      <Filter className="w-8 h-8 mb-3 text-gray-400" />
-                      <p className="text-base font-medium text-gray-900">No se encontraron colegios</p>
-                      <p className="text-sm mt-1">No hay colegios que coincidan con la búsqueda.</p>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredColegios.map((colegio) => (
+                  <tr key={colegio.id} className="hover:bg-gray-50/50 transition-colors group">
+                    <td className="px-6 py-4 font-medium text-gray-900 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+                        <GraduationCap className="w-5 h-5" />
+                      </div>
+                      {colegio.nombre}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                        {colegio.deporte_principal}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-gray-500">{colegio.miembros} atletas</td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                        colegio.estado === 'Activo' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {colegio.estado}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors" title="Editar">
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(colegio.id)}
+                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filteredColegios.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center justify-center text-gray-500">
+                        <Filter className="w-8 h-8 mb-3 text-gray-400" />
+                        <p className="text-base font-medium text-gray-900">No se encontraron colegios</p>
+                        <p className="text-sm mt-1">No hay colegios que coincidan con la búsqueda.</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
       {isModalOpen && (
         <NewColegioModal 
           onClose={() => setIsModalOpen(false)} 
-          onSave={(newColegio) => {
-            setColegios([{ ...newColegio, id: Date.now() }, ...colegios]);
-            setIsModalOpen(false);
-            showToast('Colegio creado exitosamente', 'success');
+          onSave={async (newColegio) => {
+            const { data, error } = await supabase
+              .from('colegios')
+              .insert([newColegio])
+              .select();
+
+            if (error) {
+              showToast('Error al crear colegio', 'error');
+            } else {
+              setColegios([data[0], ...colegios]);
+              setIsModalOpen(false);
+              showToast('Colegio creado exitosamente', 'success');
+            }
           }} 
         />
       )}
@@ -149,14 +190,24 @@ export function Colegios() {
 }
 
 function NewColegioModal({ onClose, onSave }: { onClose: () => void, onSave: (colegio: any) => void }) {
-  const [name, setName] = useState('');
-  const [sport, setSport] = useState('Fútbol');
-  const [members, setMembers] = useState('');
-  const [status, setStatus] = useState('Activo');
+  const [nombre, setNombre] = useState('');
+  const [deporte_principal, setDeportePrincipal] = useState('');
+  const [miembros, setMiembros] = useState('');
+  const [estado, setEstado] = useState('Activo');
+  const [disciplines, setDisciplines] = useState<any[]>([]);
+
+  useEffect(() => {
+    supabase.from('disciplines').select('label').then(({ data }) => {
+        if (data) {
+            setDisciplines(data);
+            if (data.length > 0) setDeportePrincipal(data[0].label);
+        }
+    });
+  }, []);
 
   const handleSave = () => {
-    if (!name || !members) return;
-    onSave({ name, sport, members: parseInt(members), status });
+    if (!nombre || !miembros) return;
+    onSave({ nombre, deporte_principal, miembros: parseInt(miembros), estado });
   };
 
   return (
@@ -174,8 +225,8 @@ function NewColegioModal({ onClose, onSave }: { onClose: () => void, onSave: (co
             <label className="block text-sm font-medium text-gray-700">Nombre del Colegio</label>
             <input 
               type="text" 
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
               placeholder="Ej: Colegio San Agustín"
               className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
             />
@@ -184,17 +235,13 @@ function NewColegioModal({ onClose, onSave }: { onClose: () => void, onSave: (co
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">Deporte Principal</label>
             <select 
-              value={sport}
-              onChange={(e) => setSport(e.target.value)}
+              value={deporte_principal}
+              onChange={(e) => setDeportePrincipal(e.target.value)}
               className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white transition-shadow"
             >
-              <option value="Fútbol">Fútbol</option>
-              <option value="Béisbol">Béisbol</option>
-              <option value="Baloncesto">Baloncesto</option>
-              <option value="Tenis">Tenis</option>
-              <option value="Natación">Natación</option>
-              <option value="Karate">Karate</option>
-              <option value="Gimnasia">Gimnasia</option>
+              {disciplines.map(d => (
+                <option key={d.label} value={d.label}>{d.label}</option>
+              ))}
             </select>
           </div>
 
@@ -202,8 +249,8 @@ function NewColegioModal({ onClose, onSave }: { onClose: () => void, onSave: (co
             <label className="block text-sm font-medium text-gray-700">Número de Miembros</label>
             <input 
               type="number" 
-              value={members}
-              onChange={(e) => setMembers(e.target.value)}
+              value={miembros}
+              onChange={(e) => setMiembros(e.target.value)}
               placeholder="Ej: 120"
               className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
             />
@@ -212,8 +259,8 @@ function NewColegioModal({ onClose, onSave }: { onClose: () => void, onSave: (co
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">Estado</label>
             <select 
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
+              value={estado}
+              onChange={(e) => setEstado(e.target.value)}
               className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white transition-shadow"
             >
               <option value="Activo">Activo</option>
@@ -228,7 +275,7 @@ function NewColegioModal({ onClose, onSave }: { onClose: () => void, onSave: (co
           </button>
           <button 
             onClick={handleSave}
-            disabled={!name || !members}
+            disabled={!nombre || !miembros}
             className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm hover:shadow rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Guardar Colegio

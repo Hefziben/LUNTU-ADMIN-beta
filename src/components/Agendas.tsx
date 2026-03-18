@@ -1,36 +1,54 @@
-import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Calendar, Clock, MapPin, X, Search, Filter, CheckCircle2 } from 'lucide-react';
-import { clsx } from 'clsx';
-
-const initialAgendas = [
-  { id: 1, title: 'Entrenamiento Sub-15', role: 'Entrenador', creator: 'Carlos Ruiz', date: '2026-03-10', time: '16:00', location: 'Cancha 1' },
-  { id: 2, title: 'Reunión de Padres', role: 'Colegio', creator: 'Colegio San Agustín', date: '2026-03-12', time: '18:30', location: 'Auditorio Principal' },
-  { id: 3, title: 'Torneo Interclubes', role: 'Club', creator: 'Club Deportivo LUNTU', date: '2026-03-15', time: '09:00', location: 'Complejo LUNTU' },
-  { id: 4, title: 'Práctica de Saque', role: 'Entrenador', creator: 'Ana Silva', date: '2026-03-11', time: '15:00', location: 'Cancha de Tenis 3' },
-];
+import React, { useState, useEffect } from 'react';
+import { Plus, Edit2, Trash2, Calendar, Clock, MapPin, X, Search, Filter, CheckCircle2, Loader2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export function Agendas() {
-  const [agendas, setAgendas] = useState(initialAgendas);
+  const [agendas, setAgendas] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('Entrenador');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMessage, setToastMessage] = useState<{title: string, type: 'success' | 'error'} | null>(null);
+
+  useEffect(() => {
+    fetchAgendas();
+  }, []);
+
+  const fetchAgendas = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('coach_events')
+      .select('*, coaches(name)')
+      .order('date_label', { ascending: true });
+
+    if (!error) {
+      setAgendas(data || []);
+    }
+    setLoading(false);
+  };
 
   const showToast = (title: string, type: 'success' | 'error') => {
     setToastMessage({ title, type });
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleDelete = (id: number) => {
-    setAgendas(agendas.filter(a => a.id !== id));
-    showToast('Agenda eliminada correctamente', 'success');
+  const handleDelete = async (id: string) => {
+    if (window.confirm('¿Eliminar evento?')) {
+      const { error } = await supabase.from('coach_events').delete().eq('id', id);
+      if (!error) {
+        setAgendas(agendas.filter(a => a.id !== id));
+        showToast('Agenda eliminada correctamente', 'success');
+      }
+    }
   };
 
+  // Note: We'll filter based on the type if available, otherwise fallback.
+  // For this exercise, we assume the remote data has some 'type' and 'title'.
   const filteredAgendas = agendas.filter(a => 
-    a.role === activeTab &&
+    (a.type === activeTab || (activeTab === 'Entrenador' && !a.type)) &&
     (a.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-     a.creator.toLowerCase().includes(searchQuery.toLowerCase()) ||
-     a.location.toLowerCase().includes(searchQuery.toLowerCase()))
+     (a.coaches?.name && a.coaches.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+     (a.location && a.location.toLowerCase().includes(searchQuery.toLowerCase())))
   );
 
   return (
@@ -72,7 +90,7 @@ export function Agendas() {
             >
               {tab === 'Entrenador' ? 'Entrenadores' : tab === 'Club' ? 'Clubes' : 'Colegios'}
               <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                {agendas.filter(a => a.role === tab).length}
+                {agendas.filter(a => a.type === tab || (tab === 'Entrenador' && !a.type)).length}
               </span>
             </button>
           ))}
@@ -94,61 +112,67 @@ export function Agendas() {
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50/50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
-                <th className="px-6 py-4 font-semibold">Título del Evento</th>
-                <th className="px-6 py-4 font-semibold">Creador</th>
-                <th className="px-6 py-4 font-semibold">Fecha y Hora</th>
-                <th className="px-6 py-4 font-semibold">Ubicación</th>
-                <th className="px-6 py-4 font-semibold text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredAgendas.map((agenda) => (
-                <tr key={agenda.id} className="hover:bg-gray-50/50 transition-colors group">
-                  <td className="px-6 py-4 font-medium text-gray-900">{agenda.title}</td>
-                  <td className="px-6 py-4 text-gray-500">{agenda.creator}</td>
-                  <td className="px-6 py-4 text-gray-500">
-                    <div className="flex flex-col gap-1 text-sm">
-                      <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5 text-indigo-500" /> {agenda.date}</span>
-                      <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-amber-500" /> {agenda.time}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-gray-500">
-                    <span className="flex items-center gap-1 text-sm bg-gray-100 px-2.5 py-1 rounded-md w-fit">
-                      <MapPin className="w-3.5 h-3.5 text-gray-400" /> {agenda.location}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors" title="Editar">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(agenda.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+          {loading ? (
+            <div className="flex justify-center items-center py-20">
+              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50/50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                  <th className="px-6 py-4 font-semibold">Título del Evento</th>
+                  <th className="px-6 py-4 font-semibold">Creador</th>
+                  <th className="px-6 py-4 font-semibold">Fecha y Hora</th>
+                  <th className="px-6 py-4 font-semibold">Ubicación</th>
+                  <th className="px-6 py-4 font-semibold text-right">Acciones</th>
                 </tr>
-              ))}
-              {filteredAgendas.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center justify-center text-gray-500">
-                      <Filter className="w-8 h-8 mb-3 text-gray-400" />
-                      <p className="text-base font-medium text-gray-900">No se encontraron agendas</p>
-                      <p className="text-sm mt-1">No hay eventos que coincidan con los filtros actuales.</p>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredAgendas.map((agenda) => (
+                  <tr key={agenda.id} className="hover:bg-gray-50/50 transition-colors group">
+                    <td className="px-6 py-4 font-medium text-gray-900">{agenda.title}</td>
+                    <td className="px-6 py-4 text-gray-500">{agenda.coaches?.name || 'Administrador'}</td>
+                    <td className="px-6 py-4 text-gray-500">
+                      <div className="flex flex-col gap-1 text-sm">
+                        <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5 text-indigo-500" /> {agenda.date_label}</span>
+                        <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-amber-500" /> {agenda.time_label}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-gray-500">
+                      <span className="flex items-center gap-1 text-sm bg-gray-100 px-2.5 py-1 rounded-md w-fit">
+                        <MapPin className="w-3.5 h-3.5 text-gray-400" /> {agenda.location}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors" title="Editar">
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(agenda.id)}
+                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filteredAgendas.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center justify-center text-gray-500">
+                        <Filter className="w-8 h-8 mb-3 text-gray-400" />
+                        <p className="text-base font-medium text-gray-900">No se encontraron agendas</p>
+                        <p className="text-sm mt-1">No hay eventos que coincidan con los filtros actuales.</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
@@ -156,10 +180,13 @@ export function Agendas() {
         <NewAgendaModal 
           defaultRole={activeTab}
           onClose={() => setIsModalOpen(false)} 
-          onSave={(newAgenda) => {
-            setAgendas([{ ...newAgenda, id: Date.now() }, ...agendas]);
-            setIsModalOpen(false);
-            showToast('Agenda creada exitosamente', 'success');
+          onSave={async (newAgenda) => {
+            const { data, error } = await supabase.from('coach_events').insert([newAgenda]).select('*, coaches(name)');
+            if (!error && data) {
+              setAgendas([...agendas, data[0]]);
+              setIsModalOpen(false);
+              showToast('Agenda creada exitosamente', 'success');
+            }
           }} 
         />
       )}
@@ -169,15 +196,29 @@ export function Agendas() {
 
 function NewAgendaModal({ defaultRole, onClose, onSave }: { defaultRole: string, onClose: () => void, onSave: (agenda: any) => void }) {
   const [title, setTitle] = useState('');
-  const [creator, setCreator] = useState('');
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
+  const [date_label, setDateLabel] = useState('');
+  const [time_label, setTimeLabel] = useState('');
   const [location, setLocation] = useState('');
-  const [role, setRole] = useState(defaultRole);
+  const [type, setType] = useState(defaultRole);
+  const [coachId, setCoachId] = useState('');
+  const [coaches, setCoaches] = useState<any[]>([]);
+
+  useEffect(() => {
+    supabase.from('coaches').select('id, name').then(({ data }) => {
+        if (data) setCoaches(data);
+    });
+  }, []);
 
   const handleSave = () => {
-    if (!title || !creator || !date || !time || !location) return;
-    onSave({ title, creator, date, time, location, role });
+    if (!title || !date_label || !time_label || !location) return;
+    onSave({
+        title,
+        date_label,
+        time_label,
+        location,
+        type,
+        coach_id: coachId || null
+    });
   };
 
   return (
@@ -204,21 +245,24 @@ function NewAgendaModal({ defaultRole, onClose, onSave }: { defaultRole: string,
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Creador</label>
-              <input 
-                type="text" 
-                value={creator}
-                onChange={(e) => setCreator(e.target.value)}
-                placeholder="Ej: Carlos Ruiz"
-                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
-              />
+              <label className="block text-sm font-medium text-gray-700">Creador (Entrenador)</label>
+              <select
+                value={coachId}
+                onChange={(e) => setCoachId(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white transition-shadow"
+              >
+                <option value="">Administrador</option>
+                {coaches.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Rol</label>
+              <label className="block text-sm font-medium text-gray-700">Tipo / Rol</label>
               <select 
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
+                value={type}
+                onChange={(e) => setType(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white transition-shadow"
               >
                 <option value="Entrenador">Entrenador</option>
@@ -231,8 +275,8 @@ function NewAgendaModal({ defaultRole, onClose, onSave }: { defaultRole: string,
               <label className="block text-sm font-medium text-gray-700">Fecha</label>
               <input 
                 type="date" 
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
+                value={date_label}
+                onChange={(e) => setDateLabel(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
               />
             </div>
@@ -241,8 +285,8 @@ function NewAgendaModal({ defaultRole, onClose, onSave }: { defaultRole: string,
               <label className="block text-sm font-medium text-gray-700">Hora</label>
               <input 
                 type="time" 
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
+                value={time_label}
+                onChange={(e) => setTimeLabel(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
               />
             </div>
@@ -266,7 +310,7 @@ function NewAgendaModal({ defaultRole, onClose, onSave }: { defaultRole: string,
           </button>
           <button 
             onClick={handleSave}
-            disabled={!title || !creator || !date || !time || !location}
+            disabled={!title || !date_label || !time_label || !location}
             className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm hover:shadow rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Guardar Agenda

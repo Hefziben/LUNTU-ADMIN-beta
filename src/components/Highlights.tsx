@@ -1,18 +1,37 @@
-import React, { useState } from 'react';
-import { PlaySquare, Trash2, Eye, ThumbsUp, Edit2, X, Image as ImageIcon } from 'lucide-react';
-
-const initialHighlights = [
-  { id: 1, title: 'Golazo de tiro libre', athlete: 'Diego Martínez', sport: 'Fútbol', views: 1200, likes: 340, thumbnail: 'https://picsum.photos/seed/goal/400/225' },
-  { id: 2, title: 'Saque asombroso', athlete: 'Ana Silva', sport: 'Tenis', views: 850, likes: 210, thumbnail: 'https://picsum.photos/seed/serve/400/225' },
-  { id: 3, title: 'Llegada de infarto', athlete: 'Luis Pérez', sport: 'Natación', views: 2300, likes: 890, thumbnail: 'https://picsum.photos/seed/swim/400/225' },
-];
+import React, { useState, useEffect } from 'react';
+import { PlaySquare, Trash2, Eye, ThumbsUp, Edit2, X, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export function Highlights() {
-  const [highlights, setHighlights] = useState(initialHighlights);
+  const [highlights, setHighlights] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const handleDelete = (id: number) => {
-    setHighlights(highlights.filter(h => h.id !== id));
+  useEffect(() => {
+    fetchHighlights();
+  }, []);
+
+  const fetchHighlights = async () => {
+    setLoading(true);
+    // athlete_videos seems to be the table for highlights
+    const { data, error } = await supabase
+      .from('athlete_videos')
+      .select('*, athletes(name, disciplines(label))')
+      .order('created_at', { ascending: false });
+
+    if (!error) {
+      setHighlights(data || []);
+    }
+    setLoading(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('¿Eliminar highlight?')) {
+      const { error } = await supabase.from('athlete_videos').delete().eq('id', id);
+      if (!error) {
+        setHighlights(highlights.filter(h => h.id !== id));
+      }
+    }
   };
 
   return (
@@ -30,70 +49,83 @@ export function Highlights() {
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 text-gray-500 text-sm border-b border-gray-200">
-                <th className="px-6 py-4 font-medium w-32">Miniatura</th>
-                <th className="px-6 py-4 font-medium">Título</th>
-                <th className="px-6 py-4 font-medium">Atleta</th>
-                <th className="px-6 py-4 font-medium">Deporte</th>
-                <th className="px-6 py-4 font-medium">Métricas</th>
-                <th className="px-6 py-4 font-medium text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {highlights.map((highlight) => (
-                <tr key={highlight.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <div className="relative w-24 h-14 bg-gray-100 rounded-md overflow-hidden group cursor-pointer border border-gray-200">
-                      <img src={highlight.thumbnail} alt={highlight.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <PlaySquare className="w-5 h-5 text-white" />
+          {loading ? (
+            <div className="flex justify-center items-center py-20">
+              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50 text-gray-500 text-sm border-b border-gray-200">
+                  <th className="px-6 py-4 font-medium w-32">Video</th>
+                  <th className="px-6 py-4 font-medium">Título</th>
+                  <th className="px-6 py-4 font-medium">Atleta</th>
+                  <th className="px-6 py-4 font-medium">Deporte</th>
+                  <th className="px-6 py-4 font-medium">Métricas</th>
+                  <th className="px-6 py-4 font-medium text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {highlights.map((highlight) => (
+                  <tr key={highlight.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <div className="relative w-24 h-14 bg-gray-100 rounded-md overflow-hidden group cursor-pointer border border-gray-200">
+                        {/* We use url as thumbnail for mock if it's an image, or just a placeholder */}
+                        <div className="w-full h-full flex items-center justify-center bg-gray-900 text-white text-xs">
+                           VIDEO
+                        </div>
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <PlaySquare className="w-5 h-5 text-white" />
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 font-medium text-gray-900">{highlight.title}</td>
-                  <td className="px-6 py-4 text-gray-500">{highlight.athlete}</td>
-                  <td className="px-6 py-4 text-gray-500">{highlight.sport}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <span className="flex items-center gap-1"><Eye className="w-4 h-4" /> {highlight.views}</span>
-                      <span className="flex items-center gap-1"><ThumbsUp className="w-4 h-4" /> {highlight.likes}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(highlight.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {highlights.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                    No hay highlights cargados.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                    </td>
+                    <td className="px-6 py-4 font-medium text-gray-900">{highlight.title}</td>
+                    <td className="px-6 py-4 text-gray-500">{highlight.athletes?.name}</td>
+                    <td className="px-6 py-4 text-gray-500">{highlight.athletes?.disciplines?.label}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-4 text-sm text-gray-500">
+                        <span className="flex items-center gap-1"><Eye className="w-4 h-4" /> {highlight.views || 0}</span>
+                        <span className="flex items-center gap-1"><ThumbsUp className="w-4 h-4" /> {highlight.likes || 0}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50">
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(highlight.id)}
+                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {highlights.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                      No hay highlights cargados.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
       {isModalOpen && (
         <NewHighlightModal 
           onClose={() => setIsModalOpen(false)} 
-          onSave={(newHighlight) => {
-            setHighlights([{ ...newHighlight, id: Date.now(), views: 0, likes: 0 }, ...highlights]);
-            setIsModalOpen(false);
+          onSave={async (newHighlight) => {
+            // Need an athlete_id, for mock we'll skip or use a default
+            const { data, error } = await supabase.from('athlete_videos').insert([newHighlight]).select('*, athletes(name, disciplines(label))');
+            if (!error && data) {
+              setHighlights([data[0], ...highlights]);
+              setIsModalOpen(false);
+            }
           }} 
         />
       )}
@@ -103,24 +135,28 @@ export function Highlights() {
 
 function NewHighlightModal({ onClose, onSave }: { onClose: () => void, onSave: (highlight: any) => void }) {
   const [title, setTitle] = useState('');
-  const [athlete, setAthlete] = useState('');
-  const [sport, setSport] = useState('Fútbol');
-  const [thumbnail, setThumbnail] = useState<string | null>(null);
+  const [url, setUrl] = useState('');
+  const [description, setDescription] = useState('');
+  const [athleteId, setAthleteId] = useState('');
+  const [athletes, setAthletes] = useState<any[]>([]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setThumbnail(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+  useEffect(() => {
+    supabase.from('athletes').select('id, name').then(({ data }) => {
+        if (data) setAthletes(data);
+    });
+  }, []);
 
   const handleSave = () => {
-    if (!title || !athlete || !thumbnail) return;
-    onSave({ title, athlete, sport, thumbnail });
+    if (!title || !url || !athleteId) return;
+    onSave({
+        title,
+        url,
+        description,
+        athlete_id: athleteId,
+        views: '0',
+        likes: '0',
+        date_label: new Date().toLocaleDateString()
+    });
   };
 
   return (
@@ -135,6 +171,20 @@ function NewHighlightModal({ onClose, onSave }: { onClose: () => void, onSave: (
         
         <div className="p-6 space-y-4">
           <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Atleta</label>
+            <select
+              value={athleteId}
+              onChange={(e) => setAthleteId(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+            >
+              <option value="">Seleccionar Atleta...</option>
+              {athletes.map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">Título del Video</label>
             <input 
               type="text" 
@@ -146,51 +196,24 @@ function NewHighlightModal({ onClose, onSave }: { onClose: () => void, onSave: (
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Atleta</label>
+            <label className="block text-sm font-medium text-gray-700">URL del Video</label>
             <input 
               type="text" 
-              value={athlete}
-              onChange={(e) => setAthlete(e.target.value)}
-              placeholder="Ej: Diego Martínez"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://..."
               className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Deporte</label>
-            <select 
-              value={sport}
-              onChange={(e) => setSport(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-            >
-              <option value="Fútbol">Fútbol</option>
-              <option value="Béisbol">Béisbol</option>
-              <option value="Baloncesto">Baloncesto</option>
-              <option value="Tenis">Tenis</option>
-              <option value="Natación">Natación</option>
-              <option value="Karate">Karate</option>
-              <option value="Gimnasia">Gimnasia</option>
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Miniatura del Video (Thumbnail)</label>
-            <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
-              <input 
-                type="file" 
-                accept="image/*" 
-                onChange={handleImageUpload}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              />
-              {thumbnail ? (
-                <img src={thumbnail} alt="Preview" className="max-h-32 mx-auto rounded-lg object-contain" />
-              ) : (
-                <div className="flex flex-col items-center text-gray-500">
-                  <ImageIcon className="w-8 h-8 mb-2 text-gray-400" />
-                  <p className="text-sm">Haz clic o arrastra una imagen aquí</p>
-                </div>
-              )}
-            </div>
+            <label className="block text-sm font-medium text-gray-700">Descripción</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Opcional..."
+              className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none"
+            />
           </div>
         </div>
 
@@ -200,7 +223,7 @@ function NewHighlightModal({ onClose, onSave }: { onClose: () => void, onSave: (
           </button>
           <button 
             onClick={handleSave}
-            disabled={!title || !athlete || !thumbnail}
+            disabled={!title || !url || !athleteId}
             className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Guardar Video
