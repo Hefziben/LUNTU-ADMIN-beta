@@ -6,6 +6,7 @@ export function Highlights() {
   const [highlights, setHighlights] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingHighlight, setEditingHighlight] = useState<any>(null);
 
   useEffect(() => {
     fetchHighlights();
@@ -34,12 +35,41 @@ export function Highlights() {
     }
   };
 
+  const handleEdit = (highlight: any) => {
+    setEditingHighlight(highlight);
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (newHighlight: any) => {
+    if (editingHighlight) {
+      const { data, error } = await supabase
+        .from('athlete_videos')
+        .update(newHighlight)
+        .eq('id', editingHighlight.id)
+        .select('*, athletes(name, disciplines(label))');
+      if (!error && data) {
+        setHighlights(highlights.map(h => h.id === editingHighlight.id ? data[0] : h));
+        setIsModalOpen(false);
+        setEditingHighlight(null);
+      }
+    } else {
+      const { data, error } = await supabase.from('athlete_videos').insert([newHighlight]).select('*, athletes(name, disciplines(label))');
+      if (!error && data) {
+        setHighlights([data[0], ...highlights]);
+        setIsModalOpen(false);
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">LUNTU Highlights</h2>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setEditingHighlight(null);
+            setIsModalOpen(true);
+          }}
           className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 flex items-center gap-2"
         >
           <PlaySquare className="w-4 h-4" />
@@ -90,12 +120,15 @@ export function Highlights() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
-                        <button className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50">
+                        <button
+                          onClick={() => handleEdit(highlight)}
+                          className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 edit-btn"
+                        >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(highlight.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
+                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 delete-btn"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -118,26 +151,23 @@ export function Highlights() {
 
       {isModalOpen && (
         <NewHighlightModal 
-          onClose={() => setIsModalOpen(false)} 
-          onSave={async (newHighlight) => {
-            // Need an athlete_id, for mock we'll skip or use a default
-            const { data, error } = await supabase.from('athlete_videos').insert([newHighlight]).select('*, athletes(name, disciplines(label))');
-            if (!error && data) {
-              setHighlights([data[0], ...highlights]);
-              setIsModalOpen(false);
-            }
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingHighlight(null);
           }} 
+          onSave={handleSave}
+          initialData={editingHighlight}
         />
       )}
     </div>
   );
 }
 
-function NewHighlightModal({ onClose, onSave }: { onClose: () => void, onSave: (highlight: any) => void }) {
-  const [title, setTitle] = useState('');
-  const [url, setUrl] = useState('');
-  const [description, setDescription] = useState('');
-  const [athleteId, setAthleteId] = useState('');
+function NewHighlightModal({ onClose, onSave, initialData }: { onClose: () => void, onSave: (highlight: any) => void, initialData?: any }) {
+  const [title, setTitle] = useState(initialData?.title || '');
+  const [url, setUrl] = useState(initialData?.url || '');
+  const [description, setDescription] = useState(initialData?.description || '');
+  const [athleteId, setAthleteId] = useState(initialData?.athlete_id || '');
   const [athletes, setAthletes] = useState<any[]>([]);
 
   useEffect(() => {
@@ -153,9 +183,9 @@ function NewHighlightModal({ onClose, onSave }: { onClose: () => void, onSave: (
         url,
         description,
         athlete_id: athleteId,
-        views: '0',
-        likes: '0',
-        date_label: new Date().toLocaleDateString()
+        views: initialData?.views || '0',
+        likes: initialData?.likes || '0',
+        date_label: initialData?.date_label || new Date().toLocaleDateString()
     });
   };
 
@@ -163,7 +193,7 @@ function NewHighlightModal({ onClose, onSave }: { onClose: () => void, onSave: (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
         <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-          <h3 className="text-xl font-bold text-gray-900">Subir Video (Highlight)</h3>
+          <h3 className="text-xl font-bold text-gray-900">{initialData ? 'Editar Video (Highlight)' : 'Subir Video (Highlight)'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />
           </button>
@@ -175,7 +205,7 @@ function NewHighlightModal({ onClose, onSave }: { onClose: () => void, onSave: (
             <select
               value={athleteId}
               onChange={(e) => setAthleteId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+              className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white"
             >
               <option value="">Seleccionar Atleta...</option>
               {athletes.map(a => (
@@ -189,6 +219,7 @@ function NewHighlightModal({ onClose, onSave }: { onClose: () => void, onSave: (
             <input 
               type="text" 
               value={title}
+              id="highlight-title"
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Ej: Golazo de tiro libre..."
               className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
@@ -226,7 +257,7 @@ function NewHighlightModal({ onClose, onSave }: { onClose: () => void, onSave: (
             disabled={!title || !url || !athleteId}
             className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Guardar Video
+            {initialData ? 'Guardar Cambios' : 'Guardar Video'}
           </button>
         </div>
       </div>
