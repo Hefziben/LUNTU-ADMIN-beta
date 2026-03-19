@@ -7,6 +7,7 @@ export function Agendas() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('Entrenador');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingAgenda, setEditingAgenda] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMessage, setToastMessage] = useState<{title: string, type: 'success' | 'error'} | null>(null);
 
@@ -42,6 +43,34 @@ export function Agendas() {
     }
   };
 
+  const handleEdit = (agenda: any) => {
+    setEditingAgenda(agenda);
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (newAgenda: any) => {
+    if (editingAgenda) {
+      const { data, error } = await supabase
+        .from('coach_events')
+        .update(newAgenda)
+        .eq('id', editingAgenda.id)
+        .select('*, coaches(name)');
+      if (!error && data) {
+        setAgendas(agendas.map(a => a.id === editingAgenda.id ? data[0] : a));
+        setIsModalOpen(false);
+        setEditingAgenda(null);
+        showToast('Agenda actualizada exitosamente', 'success');
+      }
+    } else {
+      const { data, error } = await supabase.from('coach_events').insert([newAgenda]).select('*, coaches(name)');
+      if (!error && data) {
+        setAgendas([data[0], ...agendas]);
+        setIsModalOpen(false);
+        showToast('Agenda creada exitosamente', 'success');
+      }
+    }
+  };
+
   // Note: We'll filter based on the type if available, otherwise fallback.
   // For this exercise, we assume the remote data has some 'type' and 'title'.
   const filteredAgendas = agendas.filter(a => 
@@ -67,7 +96,10 @@ export function Agendas() {
           <p className="text-sm text-gray-500 mt-1">Administra los eventos y actividades programadas.</p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setEditingAgenda(null);
+            setIsModalOpen(true);
+          }}
           className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 flex items-center gap-2 shadow-sm transition-colors"
         >
           <Plus className="w-4 h-4" />
@@ -145,12 +177,15 @@ export function Agendas() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors" title="Editar">
+                        <button
+                          onClick={() => handleEdit(agenda)}
+                          className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors edit-btn" title="Editar"
+                        >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(agenda.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors delete-btn"
                           title="Eliminar"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -179,28 +214,25 @@ export function Agendas() {
       {isModalOpen && (
         <NewAgendaModal 
           defaultRole={activeTab}
-          onClose={() => setIsModalOpen(false)} 
-          onSave={async (newAgenda) => {
-            const { data, error } = await supabase.from('coach_events').insert([newAgenda]).select('*, coaches(name)');
-            if (!error && data) {
-              setAgendas([...agendas, data[0]]);
-              setIsModalOpen(false);
-              showToast('Agenda creada exitosamente', 'success');
-            }
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingAgenda(null);
           }} 
+          onSave={handleSave}
+          initialData={editingAgenda}
         />
       )}
     </div>
   );
 }
 
-function NewAgendaModal({ defaultRole, onClose, onSave }: { defaultRole: string, onClose: () => void, onSave: (agenda: any) => void }) {
-  const [title, setTitle] = useState('');
-  const [date_label, setDateLabel] = useState('');
-  const [time_label, setTimeLabel] = useState('');
-  const [location, setLocation] = useState('');
-  const [type, setType] = useState(defaultRole);
-  const [coachId, setCoachId] = useState('');
+function NewAgendaModal({ defaultRole, onClose, onSave, initialData }: { defaultRole: string, onClose: () => void, onSave: (agenda: any) => void, initialData?: any }) {
+  const [title, setTitle] = useState(initialData?.title || '');
+  const [date_label, setDateLabel] = useState(initialData?.date_label || '');
+  const [time_label, setTimeLabel] = useState(initialData?.time_label || '');
+  const [location, setLocation] = useState(initialData?.location || '');
+  const [type, setType] = useState(initialData?.type || defaultRole);
+  const [coachId, setCoachId] = useState(initialData?.coach_id || '');
   const [coaches, setCoaches] = useState<any[]>([]);
 
   useEffect(() => {
@@ -225,7 +257,7 @@ function NewAgendaModal({ defaultRole, onClose, onSave }: { defaultRole: string,
     <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-          <h3 className="text-lg font-semibold text-gray-900">Nueva Agenda</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{initialData ? 'Editar Agenda' : 'Nueva Agenda'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-500 p-1 rounded-full hover:bg-gray-100 transition-colors">
             <X className="w-5 h-5" />
           </button>
@@ -238,6 +270,7 @@ function NewAgendaModal({ defaultRole, onClose, onSave }: { defaultRole: string,
               <input 
                 type="text" 
                 value={title}
+                id="agenda-title"
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Ej: Entrenamiento Sub-15"
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
@@ -313,7 +346,7 @@ function NewAgendaModal({ defaultRole, onClose, onSave }: { defaultRole: string,
             disabled={!title || !date_label || !time_label || !location}
             className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm hover:shadow rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Guardar Agenda
+            {initialData ? 'Guardar Cambios' : 'Guardar Agenda'}
           </button>
         </div>
       </div>

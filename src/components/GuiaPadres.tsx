@@ -6,6 +6,7 @@ export function GuiaPadres() {
   const [guides, setGuides] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingGuide, setEditingGuide] = useState<any>(null);
 
   useEffect(() => {
     fetchGuides();
@@ -16,7 +17,7 @@ export function GuiaPadres() {
     const { data, error } = await supabase
       .from('guia_padres')
       .select('*')
-      .order('fecha', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (!error) {
       setGuides(data || []);
@@ -33,15 +34,34 @@ export function GuiaPadres() {
     }
   };
 
-  const handleSave = async (newGuide: any) => {
-    const { data, error } = await supabase
-      .from('guia_padres')
-      .insert([newGuide])
-      .select();
+  const handleEdit = (guide: any) => {
+    setEditingGuide(guide);
+    setIsModalOpen(true);
+  };
 
-    if (!error && data) {
-      setGuides([data[0], ...guides]);
-      setIsModalOpen(false);
+  const handleSave = async (newGuide: any) => {
+    if (editingGuide) {
+      const { data, error } = await supabase
+        .from('guia_padres')
+        .update(newGuide)
+        .eq('id', editingGuide.id)
+        .select();
+
+      if (!error && data) {
+        setGuides(guides.map(g => g.id === editingGuide.id ? data[0] : g));
+        setIsModalOpen(false);
+        setEditingGuide(null);
+      }
+    } else {
+      const { data, error } = await supabase
+        .from('guia_padres')
+        .insert([newGuide])
+        .select();
+
+      if (!error && data) {
+        setGuides([data[0], ...guides]);
+        setIsModalOpen(false);
+      }
     }
   };
 
@@ -53,7 +73,10 @@ export function GuiaPadres() {
           <p className="text-gray-500 mt-1">Gestiona los artículos y recursos educativos para padres.</p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setEditingGuide(null);
+            setIsModalOpen(true);
+          }}
           className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
@@ -106,12 +129,15 @@ export function GuiaPadres() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
-                        <button className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50">
+                        <button
+                          onClick={() => handleEdit(guide)}
+                          className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 edit-btn"
+                        >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(guide.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
+                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 delete-btn"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -134,22 +160,26 @@ export function GuiaPadres() {
 
       {isModalOpen && (
         <NewGuideModal 
-          onClose={() => setIsModalOpen(false)} 
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingGuide(null);
+          }}
           onSave={handleSave}
+          initialData={editingGuide}
         />
       )}
     </div>
   );
 }
 
-function NewGuideModal({ onClose, onSave }: { onClose: () => void, onSave: (guide: any) => void }) {
-  const [titulo, setTitulo] = useState('');
-  const [categoria, setCategoria] = useState('Psicología');
-  const [autor, setAutor] = useState('');
-  const [fecha, setFecha] = useState('');
-  const [estado, setEstado] = useState('Borrador');
-  const [contenido, setContenido] = useState('');
-  const [imagen_url, setImagenUrl] = useState<string | null>(null);
+function NewGuideModal({ onClose, onSave, initialData }: { onClose: () => void, onSave: (guide: any) => void, initialData?: any }) {
+  const [titulo, setTitulo] = useState(initialData?.titulo || '');
+  const [categoria, setCategoria] = useState(initialData?.categoria || 'Psicología');
+  const [autor, setAutor] = useState(initialData?.autor || '');
+  const [fecha, setFecha] = useState(initialData?.fecha || '');
+  const [estado, setEstado] = useState(initialData?.estado || 'Borrador');
+  const [contenido, setContenido] = useState(initialData?.contenido || '');
+  const [imagen_url, setImagenUrl] = useState<string | null>(initialData?.imagen_url || null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -173,7 +203,7 @@ function NewGuideModal({ onClose, onSave }: { onClose: () => void, onSave: (guid
         <div className="p-6 border-b border-gray-200 flex justify-between items-center">
           <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-indigo-600" />
-            Redactar Artículo para Padres
+            {initialData ? 'Editar Artículo para Padres' : 'Redactar Artículo para Padres'}
           </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />
@@ -186,6 +216,7 @@ function NewGuideModal({ onClose, onSave }: { onClose: () => void, onSave: (guid
             <input 
               type="text" 
               value={titulo}
+              id="guide-title"
               onChange={(e) => setTitulo(e.target.value)}
               placeholder="Ej: Cómo apoyar a tu hijo..."
               className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
@@ -198,7 +229,7 @@ function NewGuideModal({ onClose, onSave }: { onClose: () => void, onSave: (guid
               <select 
                 value={categoria}
                 onChange={(e) => setCategoria(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white"
               >
                 <option value="Psicología">Psicología</option>
                 <option value="Nutrición">Nutrición</option>
@@ -235,7 +266,7 @@ function NewGuideModal({ onClose, onSave }: { onClose: () => void, onSave: (guid
               <select 
                 value={estado}
                 onChange={(e) => setEstado(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white"
               >
                 <option value="Borrador">Borrador</option>
                 <option value="Publicado">Publicado</option>
@@ -284,7 +315,7 @@ function NewGuideModal({ onClose, onSave }: { onClose: () => void, onSave: (guid
             disabled={!titulo || !categoria || !autor || !fecha || !imagen_url || !contenido}
             className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Guardar Artículo
+            {initialData ? 'Guardar Cambios' : 'Guardar Artículo'}
           </button>
         </div>
       </div>
