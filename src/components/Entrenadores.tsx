@@ -6,6 +6,7 @@ export function Entrenadores() {
   const [entrenadores, setEntrenadores] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingEntrenador, setEditingEntrenador] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMessage, setToastMessage] = useState<{title: string, type: 'success' | 'error'} | null>(null);
 
@@ -18,7 +19,7 @@ export function Entrenadores() {
     const { data, error } = await supabase
       .from('coaches')
       .select('*')
-      .order('name', { ascending: true });
+      .order('created_at', { ascending: false });
 
     if (!error) {
       setEntrenadores(data || []);
@@ -37,6 +38,34 @@ export function Entrenadores() {
       if (!error) {
         setEntrenadores(entrenadores.filter(e => e.id !== id));
         showToast('Entrenador eliminado correctamente', 'success');
+      }
+    }
+  };
+
+  const handleEdit = (entrenador: any) => {
+    setEditingEntrenador(entrenador);
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (newEntrenador: any) => {
+    if (editingEntrenador) {
+      const { data, error } = await supabase
+        .from('coaches')
+        .update(newEntrenador)
+        .eq('id', editingEntrenador.id)
+        .select();
+      if (!error && data) {
+        setEntrenadores(entrenadores.map(e => e.id === editingEntrenador.id ? data[0] : e));
+        setIsModalOpen(false);
+        setEditingEntrenador(null);
+        showToast('Entrenador actualizado exitosamente', 'success');
+      }
+    } else {
+      const { data, error } = await supabase.from('coaches').insert([newEntrenador]).select();
+      if (!error && data) {
+        setEntrenadores([data[0], ...entrenadores]);
+        setIsModalOpen(false);
+        showToast('Entrenador creado exitosamente', 'success');
       }
     }
   };
@@ -63,7 +92,10 @@ export function Entrenadores() {
           <p className="text-sm text-gray-500 mt-1">Administra los entrenadores registrados en la plataforma.</p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setEditingEntrenador(null);
+            setIsModalOpen(true);
+          }}
           className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 flex items-center gap-2 shadow-sm transition-colors"
         >
           <Plus className="w-4 h-4" />
@@ -134,12 +166,15 @@ export function Entrenadores() {
                         <button title="Ver Contenido" className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors">
                           <FileText className="w-4 h-4" />
                         </button>
-                        <button className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors" title="Editar">
+                        <button
+                          onClick={() => handleEdit(entrenador)}
+                          className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors edit-btn" title="Editar"
+                        >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(entrenador.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors delete-btn"
                           title="Eliminar"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -167,37 +202,34 @@ export function Entrenadores() {
 
       {isModalOpen && (
         <NewEntrenadorModal 
-          onClose={() => setIsModalOpen(false)} 
-          onSave={async (newEntrenador) => {
-            const { data, error } = await supabase.from('coaches').insert([newEntrenador]).select();
-            if (!error && data) {
-              setEntrenadores([...entrenadores, data[0]]);
-              setIsModalOpen(false);
-              showToast('Entrenador creado exitosamente', 'success');
-            }
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingEntrenador(null);
           }} 
+          onSave={handleSave}
+          initialData={editingEntrenador}
         />
       )}
     </div>
   );
 }
 
-function NewEntrenadorModal({ onClose, onSave }: { onClose: () => void, onSave: (entrenador: any) => void }) {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [specialty, setSpecialty] = useState('');
-  const [affiliation, setAffiliation] = useState('');
+function NewEntrenadorModal({ onClose, onSave, initialData }: { onClose: () => void, onSave: (entrenador: any) => void, initialData?: any }) {
+  const [name, setName] = useState(initialData?.name || '');
+  const [email, setEmail] = useState(initialData?.email || '');
+  const [phone, setPhone] = useState(initialData?.phone || '');
+  const [specialty, setSpecialty] = useState(initialData?.specialty || '');
+  const [affiliation, setAffiliation] = useState(initialData?.affiliation || '');
   const [disciplines, setDisciplines] = useState<any[]>([]);
 
   useEffect(() => {
     supabase.from('disciplines').select('label').then(({ data }) => {
         if (data) {
             setDisciplines(data);
-            if (data.length > 0) setSpecialty(data[0].label);
+            if (!initialData && data.length > 0) setSpecialty(data[0].label);
         }
     });
-  }, []);
+  }, [initialData]);
 
   const handleSave = () => {
     if (!name || !email) return;
@@ -208,7 +240,7 @@ function NewEntrenadorModal({ onClose, onSave }: { onClose: () => void, onSave: 
     <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-          <h3 className="text-lg font-semibold text-gray-900">Nuevo Entrenador</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{initialData ? 'Editar Entrenador' : 'Nuevo Entrenador'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-500 p-1 rounded-full hover:bg-gray-100 transition-colors">
             <X className="w-5 h-5" />
           </button>
@@ -221,6 +253,7 @@ function NewEntrenadorModal({ onClose, onSave }: { onClose: () => void, onSave: 
               <input 
                 type="text" 
                 value={name}
+                id="coach-name"
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ej: Carlos Ruiz"
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
@@ -284,7 +317,7 @@ function NewEntrenadorModal({ onClose, onSave }: { onClose: () => void, onSave: 
             disabled={!name || !email}
             className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm hover:shadow rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Guardar Entrenador
+            {initialData ? 'Guardar Cambios' : 'Guardar Entrenador'}
           </button>
         </div>
       </div>

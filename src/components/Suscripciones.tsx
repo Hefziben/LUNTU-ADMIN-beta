@@ -8,6 +8,7 @@ export function Suscripciones({ activeTab: initialActiveTab = 'Entrenador' }: { 
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(initialActiveTab);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingSub, setEditingSub] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMessage, setToastMessage] = useState<{title: string, type: 'success' | 'error'} | null>(null);
 
@@ -48,6 +49,34 @@ export function Suscripciones({ activeTab: initialActiveTab = 'Entrenador' }: { 
     }
   };
 
+  const handleEdit = (sub: any) => {
+    setEditingSub(sub);
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (newSub: any) => {
+    if (editingSub) {
+      const { data, error } = await supabase
+        .from('suscripciones')
+        .update(newSub)
+        .eq('id', editingSub.id)
+        .select();
+      if (!error && data) {
+        setSuscripciones(suscripciones.map(s => s.id === editingSub.id ? data[0] : s));
+        setIsModalOpen(false);
+        setEditingSub(null);
+        showToast('Suscripción actualizada exitosamente', 'success');
+      }
+    } else {
+      const { data, error } = await supabase.from('suscripciones').insert([newSub]).select();
+      if (!error && data) {
+        setSuscripciones([data[0], ...suscripciones]);
+        setIsModalOpen(false);
+        showToast('Suscripción creada exitosamente', 'success');
+      }
+    }
+  };
+
   const filteredSubs = suscripciones.filter(s => 
     s.tipo === activeTab &&
     (s.entidad.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -83,7 +112,10 @@ export function Suscripciones({ activeTab: initialActiveTab = 'Entrenador' }: { 
           <p className="text-sm text-gray-500 mt-1">Administra los planes y pagos de los usuarios de la plataforma.</p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setEditingSub(null);
+            setIsModalOpen(true);
+          }}
           className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 flex items-center gap-2 shadow-sm transition-colors"
         >
           <Plus className="w-4 h-4" />
@@ -167,12 +199,15 @@ export function Suscripciones({ activeTab: initialActiveTab = 'Entrenador' }: { 
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors" title="Editar">
+                        <button
+                          onClick={() => handleEdit(sub)}
+                          className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors edit-btn" title="Editar"
+                        >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(sub.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors delete-btn"
                           title="Eliminar"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -201,28 +236,25 @@ export function Suscripciones({ activeTab: initialActiveTab = 'Entrenador' }: { 
       {isModalOpen && (
         <NewSubscriptionModal 
           defaultType={activeTab}
-          onClose={() => setIsModalOpen(false)} 
-          onSave={async (newSub) => {
-            const { data, error } = await supabase.from('suscripciones').insert([newSub]).select();
-            if (!error && data) {
-              setSuscripciones([data[0], ...suscripciones]);
-              setIsModalOpen(false);
-              showToast('Suscripción creada exitosamente', 'success');
-            }
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingSub(null);
           }} 
+          onSave={handleSave}
+          initialData={editingSub}
         />
       )}
     </div>
   );
 }
 
-function NewSubscriptionModal({ defaultType, onClose, onSave }: { defaultType: string, onClose: () => void, onSave: (sub: any) => void }) {
-  const [entidad, setEntidad] = useState('');
-  const [tipo, setTipo] = useState(defaultType);
-  const [plan, setPlan] = useState('');
-  const [monto, setMonto] = useState('');
-  const [proximo_cobro, setProximoCobro] = useState('');
-  const [estado, setEstado] = useState('Activa');
+function NewSubscriptionModal({ defaultType, onClose, onSave, initialData }: { defaultType: string, onClose: () => void, onSave: (sub: any) => void, initialData?: any }) {
+  const [entidad, setEntidad] = useState(initialData?.entidad || '');
+  const [tipo, setTipo] = useState(initialData?.tipo || defaultType);
+  const [plan, setPlan] = useState(initialData?.plan || '');
+  const [monto, setMonto] = useState(initialData?.monto?.replace('$', '') || '');
+  const [proximo_cobro, setProximoCobro] = useState(initialData?.proximo_cobro || '');
+  const [estado, setEstado] = useState(initialData?.estado || 'Activa');
 
   const handleSave = () => {
     if (!entidad || !plan || !monto) return;
@@ -233,7 +265,7 @@ function NewSubscriptionModal({ defaultType, onClose, onSave }: { defaultType: s
     <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-          <h3 className="text-lg font-semibold text-gray-900">Nueva Suscripción</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{initialData ? 'Editar Suscripción' : 'Nueva Suscripción'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-500 p-1 rounded-full hover:bg-gray-100 transition-colors">
             <X className="w-5 h-5" />
           </button>
@@ -246,6 +278,7 @@ function NewSubscriptionModal({ defaultType, onClose, onSave }: { defaultType: s
               <input 
                 type="text" 
                 value={entidad}
+                id="subscription-entity"
                 onChange={(e) => setEntidad(e.target.value)}
                 placeholder="Ej: Colegio San Agustín"
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
@@ -321,7 +354,7 @@ function NewSubscriptionModal({ defaultType, onClose, onSave }: { defaultType: s
             disabled={!entidad || !plan || !monto}
             className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm hover:shadow rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Guardar Suscripción
+            {initialData ? 'Guardar Cambios' : 'Guardar Suscripción'}
           </button>
         </div>
       </div>

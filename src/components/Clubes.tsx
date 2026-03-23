@@ -6,6 +6,7 @@ export function Clubes() {
   const [clubes, setClubes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingClub, setEditingClub] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMessage, setToastMessage] = useState<{title: string, type: 'success' | 'error'} | null>(null);
 
@@ -20,7 +21,7 @@ export function Clubes() {
     const { data, error } = await supabase
       .from('clubs')
       .select('*')
-      .order('name', { ascending: true });
+      .order('created_at', { ascending: false });
 
     if (!error) {
       setClubes(data || []);
@@ -39,6 +40,34 @@ export function Clubes() {
       if (!error) {
         setClubes(clubes.filter(c => c.id !== id));
         showToast('Club eliminado correctamente', 'success');
+      }
+    }
+  };
+
+  const handleEdit = (club: any) => {
+    setEditingClub(club);
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (newClub: any) => {
+    if (editingClub) {
+      const { data, error } = await supabase
+        .from('clubs')
+        .update(newClub)
+        .eq('id', editingClub.id)
+        .select();
+      if (!error && data) {
+        setClubes(clubes.map(c => c.id === editingClub.id ? data[0] : c));
+        setIsModalOpen(false);
+        setEditingClub(null);
+        showToast('Club actualizado exitosamente', 'success');
+      }
+    } else {
+      const { data, error } = await supabase.from('clubs').insert([newClub]).select();
+      if (!error && data) {
+        setClubes([data[0], ...clubes]);
+        setIsModalOpen(false);
+        showToast('Club creado exitosamente', 'success');
       }
     }
   };
@@ -64,7 +93,10 @@ export function Clubes() {
           <p className="text-sm text-gray-500 mt-1">Administra los clubes registrados en la plataforma.</p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setEditingClub(null);
+            setIsModalOpen(true);
+          }}
           className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 flex items-center gap-2 shadow-sm transition-colors"
         >
           <Plus className="w-4 h-4" />
@@ -132,12 +164,15 @@ export function Clubes() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors" title="Editar">
+                        <button
+                          onClick={() => handleEdit(club)}
+                          className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors edit-btn" title="Editar"
+                        >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(club.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors delete-btn"
                           title="Eliminar"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -165,27 +200,24 @@ export function Clubes() {
 
       {isModalOpen && (
         <NewClubModal 
-          onClose={() => setIsModalOpen(false)} 
-          onSave={async (newClub) => {
-            const { data, error } = await supabase.from('clubs').insert([newClub]).select();
-            if (!error && data) {
-              setClubes([...clubes, data[0]]);
-              setIsModalOpen(false);
-              showToast('Club creado exitosamente', 'success');
-            }
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingClub(null);
           }} 
+          onSave={handleSave}
+          initialData={editingClub}
         />
       )}
     </div>
   );
 }
 
-function NewClubModal({ onClose, onSave }: { onClose: () => void, onSave: (club: any) => void }) {
-  const [name, setName] = useState('');
-  const [location, setLocation] = useState('');
-  const [rating, setRating] = useState('5.0');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
+function NewClubModal({ onClose, onSave, initialData }: { onClose: () => void, onSave: (club: any) => void, initialData?: any }) {
+  const [name, setName] = useState(initialData?.name || '');
+  const [location, setLocation] = useState(initialData?.location || '');
+  const [rating, setRating] = useState(initialData?.rating?.toString() || '5.0');
+  const [phone, setPhone] = useState(initialData?.phone || '');
+  const [email, setEmail] = useState(initialData?.email || '');
 
   const handleSave = () => {
     if (!name) return;
@@ -196,7 +228,7 @@ function NewClubModal({ onClose, onSave }: { onClose: () => void, onSave: (club:
     <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-          <h3 className="text-lg font-semibold text-gray-900">Nuevo Club</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{initialData ? 'Editar Club' : 'Nuevo Club'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-500 p-1 rounded-full hover:bg-gray-100 transition-colors">
             <X className="w-5 h-5" />
           </button>
@@ -208,6 +240,7 @@ function NewClubModal({ onClose, onSave }: { onClose: () => void, onSave: (club:
             <input 
               type="text" 
               value={name}
+              id="club-name"
               onChange={(e) => setName(e.target.value)}
               placeholder="Ej: Club Deportivo LUNTU"
               className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
@@ -271,7 +304,7 @@ function NewClubModal({ onClose, onSave }: { onClose: () => void, onSave: (club:
             disabled={!name}
             className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm hover:shadow rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Guardar Club
+            {initialData ? 'Guardar Cambios' : 'Guardar Club'}
           </button>
         </div>
       </div>
