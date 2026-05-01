@@ -6,6 +6,7 @@ import { Agendas } from './components/Agendas';
 import { Clubes } from './components/Clubes';
 import { Colegios } from './components/Colegios';
 import { Entrenadores } from './components/Entrenadores';
+import { Disciplinas } from './components/Disciplinas';
 import { Categorias } from './components/Categorias';
 import { Deportistas } from './components/Deportistas';
 import { Highlights } from './components/Highlights';
@@ -29,6 +30,7 @@ export default function App() {
       case 'clubes': return <Clubes />;
       case 'colegios': return <Colegios />;
       case 'entrenadores': return <Entrenadores />;
+      case 'disciplinas': return <Disciplinas />;
       case 'categorias': return <Categorias />;
       case 'deportistas': return <Deportistas />;
       case 'highlights': return <Highlights />;

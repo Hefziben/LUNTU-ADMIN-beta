@@ -13,7 +13,8 @@ export function Dashboard() {
     athletes: '0',
     coaches: '0',
     clubs: '0',
-    schools: '0'
+    schools: '0',
+    disciplines: '0'
   });
   const [athleteSportsData, setAthleteSportsData] = useState<any[]>([]);
   const [growthData, setGrowthData] = useState<any[]>([]);
@@ -27,12 +28,13 @@ export function Dashboard() {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const [profilesCount, athletesCount, coachesCount, clubsCount, schoolsCount, sportsData, activityData] = await Promise.all([
+      const [profilesCount, athletesCount, coachesCount, clubsCount, schoolsCount, disciplinesCount, sportsData, activityData] = await Promise.all([
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
         supabase.from('athletes').select('*', { count: 'exact', head: true }),
         supabase.from('coaches').select('*', { count: 'exact', head: true }),
         supabase.from('clubs').select('*', { count: 'exact', head: true }),
         supabase.from('colegios').select('*', { count: 'exact', head: true }),
+        supabase.from('disciplines').select('*', { count: 'exact', head: true }),
         supabase.rpc('get_athletes_by_sport'),
         supabase.from('solicitudes_registro').select('*').order('created_at', { ascending: false }).limit(5)
       ]);
@@ -43,6 +45,7 @@ export function Dashboard() {
         coaches: (coachesCount.count || 0).toLocaleString(),
         clubs: (clubsCount.count || 0).toLocaleString(),
         schools: (schoolsCount.count || 0).toLocaleString(),
+        disciplines: (disciplinesCount.count || 0).toLocaleString(),
       });
 
       if (!activityData.error) {
@@ -114,12 +117,13 @@ export function Dashboard() {
       ) : (
         <>
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <StatCard title="Usuarios Activos" value={stats.users} icon={Users} />
             <StatCard title="Atletas" value={stats.athletes} icon={Medal} />
             <StatCard title="Entrenadores" value={stats.coaches} icon={Dumbbell} />
             <StatCard title="Clubes" value={stats.clubs} icon={Building2} />
             <StatCard title="Colegios" value={stats.schools} icon={GraduationCap} />
+            <StatCard title="Disciplinas" value={stats.disciplines} icon={Trophy} />
           </div>
 
           {/* Charts & Activity */}

@@ -120,6 +120,30 @@ test.describe('CRUD Operations Validation', () => {
     await expect(page.locator('td:has-text("Updated Coach")')).not.toBeVisible();
   });
 
+  test('Disciplinas CRUD', async ({ page }) => {
+    await page.click('button:has-text("Disciplinas")');
+    await expect(page.locator('h2').filter({ hasText: 'Disciplinas Deportivas' })).toBeVisible();
+
+    // Create
+    await page.click('button:has-text("Nueva Disciplina")');
+    await page.fill('input[placeholder*="futbol, artes-marciales"]', 'test-spec-disc');
+    await page.fill('input[placeholder*="Fútbol, Artes Marciales"]', 'Test Spec Discipline');
+    await page.click('button:has-text("Guardar Disciplina")');
+    await expect(page.locator('td:has-text("Test Spec Discipline")').first()).toBeVisible({ timeout: 10000 });
+
+    // Update
+    await page.locator('tr:has-text("Test Spec Discipline")').first().locator('button').first().click();
+    await page.fill('input[placeholder*="Fútbol, Artes Marciales"]', 'Updated Spec Discipline');
+    await page.click('button:has-text("Guardar Cambios")');
+    await expect(page.locator('td:has-text("Updated Spec Discipline")').first()).toBeVisible();
+
+    // Delete
+    page.on('dialog', dialog => dialog.accept());
+    await page.locator('tr:has-text("Updated Spec Discipline")').first().locator('button').last().click();
+    await page.waitForTimeout(1000);
+    await expect(page.locator('td:has-text("Updated Spec Discipline")')).not.toBeVisible();
+  });
+
   test('Categorías CRUD', async ({ page }) => {
     await page.click('button:has-text("Categorías")');
     await expect(page.locator('h2').filter({ hasText: 'Categorías Deportivas' })).toBeVisible();
@@ -393,5 +417,6 @@ test.describe('CRUD Operations Validation', () => {
         await expect(page.locator(`td:has-text("${name}")`)).toBeVisible();
     }
   });
+
 
 });
