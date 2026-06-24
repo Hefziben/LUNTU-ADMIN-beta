@@ -19,16 +19,38 @@ export function Entrenadores() {
   const fetchCoaches = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // First try user_profiles as requested by the user
+      // We try both phone and telefono to be safe
+      let { data, error } = await supabase
         .from('coaches')
-        .select('*')
+        .select('*, user_profiles(name, email, phone, telefono)')
         .order('name', { ascending: true });
+
+      // Fallback to profiles if user_profiles doesn't exist
+      if (error && (error.message.includes('user_profiles') || error.message.includes('relation "user_profiles" does not exist'))) {
+        const { data: pData, error: pError } = await supabase
+          .from('coaches')
+          .select('*, profiles(name, email, phone, telefono)')
+          .order('name', { ascending: true });
+        data = pData;
+        error = pError;
+      }
 
       if (error) {
         console.error('Error fetching coaches:', error);
         showToast('Error al cargar entrenadores', 'error');
       } else {
-        setEntrenadores(data || []);
+        // Map data to use values from profile/user_profile if available
+        const mappedData = data?.map(coach => {
+          const profile = coach.user_profiles || coach.profiles;
+          return {
+            ...coach,
+            name: profile?.name || coach.name,
+            email: profile?.email || coach.email,
+            phone: profile?.phone || profile?.telefono || coach.phone
+          };
+        });
+        setEntrenadores(mappedData || []);
       }
     } catch (e) {
       console.error('Exception fetching coaches:', e);
@@ -71,24 +93,62 @@ export function Entrenadores() {
         .from('coaches')
         .update(newEntrenador)
         .eq('id', editingEntrenador.id)
-        .select();
-      if (!error && data) {
-        setEntrenadores(entrenadores.map(e => e.id === editingEntrenador.id ? data[0] : e));
+        .select('*, user_profiles(name, email, phone, telefono)');
+
+      let resultData = data;
+      let resultError = error;
+
+      if (resultError && (resultError.message.includes('user_profiles') || resultError.message.includes('relation "user_profiles" does not exist'))) {
+          const { data: pData, error: pError } = await supabase
+            .from('coaches')
+            .update(newEntrenador)
+            .eq('id', editingEntrenador.id)
+            .select('*, profiles(name, email, phone, telefono)');
+          resultData = pData;
+          resultError = pError;
+      }
+
+      if (!resultError && resultData) {
+        const profile = resultData[0].user_profiles || resultData[0].profiles;
+        const updated = {
+            ...resultData[0],
+            name: profile?.name || resultData[0].name,
+            email: profile?.email || resultData[0].email,
+            phone: profile?.phone || profile?.telefono || resultData[0].phone
+        };
+        setEntrenadores(entrenadores.map(e => e.id === editingEntrenador.id ? updated : e));
         setIsModalOpen(false);
         setEditingEntrenador(null);
         showToast('Entrenador actualizado exitosamente', 'success');
       } else {
-        console.error('Update error:', error);
+        console.error('Update error:', resultError);
         showToast('Error al actualizar entrenador', 'error');
       }
     } else {
-      const { data, error } = await supabase.from('coaches').insert([newEntrenador]).select();
-      if (!error && data) {
-        setEntrenadores([data[0], ...entrenadores]);
+      const { data, error } = await supabase.from('coaches').insert([newEntrenador]).select('*, user_profiles(name, email, phone, telefono)');
+
+      let resultData = data;
+      let resultError = error;
+
+      if (resultError && (resultError.message.includes('user_profiles') || resultError.message.includes('relation "user_profiles" does not exist'))) {
+          const { data: pData, error: pError } = await supabase.from('coaches').insert([newEntrenador]).select('*, profiles(name, email, phone, telefono)');
+          resultData = pData;
+          resultError = pError;
+      }
+
+      if (!resultError && resultData) {
+        const profile = resultData[0].user_profiles || resultData[0].profiles;
+        const created = {
+            ...resultData[0],
+            name: profile?.name || resultData[0].name,
+            email: profile?.email || resultData[0].email,
+            phone: profile?.phone || profile?.telefono || resultData[0].phone
+        };
+        setEntrenadores([created, ...entrenadores]);
         setIsModalOpen(false);
         showToast('Entrenador creado exitosamente', 'success');
       } else {
-        console.error('Insert error:', error);
+        console.error('Insert error:', resultError);
         showToast('Error al crear entrenador en la base de datos', 'error');
       }
     }
@@ -154,7 +214,7 @@ export function Entrenadores() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50/50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
-                  <th className="px-6 py-4 font-semibold">Perfil</th>
+                  <th className="px-6 py-4 font-semibold">Nombre</th>
                   <th className="px-6 py-4 font-semibold">Contacto</th>
                   <th className="px-6 py-4 font-semibold">Especialidad</th>
                   <th className="px-6 py-4 font-semibold">Experiencia</th>
