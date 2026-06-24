@@ -6,6 +6,7 @@ export function Colegios() {
   const [colegios, setColegios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingColegio, setEditingColegio] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMessage, setToastMessage] = useState<{title: string, type: 'success' | 'error'} | null>(null);
 
@@ -49,6 +50,43 @@ export function Colegios() {
     }
   };
 
+  const handleEdit = (colegio: any) => {
+    setEditingColegio(colegio);
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (newColegio: any) => {
+    if (editingColegio) {
+      const { data, error } = await supabase
+        .from('colegios')
+        .update(newColegio)
+        .eq('id', editingColegio.id)
+        .select();
+
+      if (error) {
+        showToast('Error al actualizar colegio', 'error');
+      } else {
+        setColegios(colegios.map(c => c.id === editingColegio.id ? data[0] : c));
+        setIsModalOpen(false);
+        setEditingColegio(null);
+        showToast('Colegio actualizado exitosamente', 'success');
+      }
+    } else {
+      const { data, error } = await supabase
+        .from('colegios')
+        .insert([newColegio])
+        .select();
+
+      if (error) {
+        showToast('Error al crear colegio', 'error');
+      } else {
+        setColegios([data[0], ...colegios]);
+        setIsModalOpen(false);
+        showToast('Colegio creado exitosamente', 'success');
+      }
+    }
+  };
+
   const filteredColegios = colegios.filter(c => 
     c.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (c.deporte_principal && c.deporte_principal.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -70,7 +108,10 @@ export function Colegios() {
           <p className="text-sm text-gray-500 mt-1">Administra los colegios registrados en la plataforma.</p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setEditingColegio(null);
+            setIsModalOpen(true);
+          }}
           className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 flex items-center gap-2 shadow-sm transition-colors"
         >
           <Plus className="w-4 h-4" />
@@ -135,12 +176,15 @@ export function Colegios() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors" title="Editar">
+                        <button
+                          onClick={() => handleEdit(colegio)}
+                          className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors edit-btn" title="Editar"
+                        >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(colegio.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors delete-btn"
                           title="Eliminar"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -168,42 +212,33 @@ export function Colegios() {
 
       {isModalOpen && (
         <NewColegioModal 
-          onClose={() => setIsModalOpen(false)} 
-          onSave={async (newColegio) => {
-            const { data, error } = await supabase
-              .from('colegios')
-              .insert([newColegio])
-              .select();
-
-            if (error) {
-              showToast('Error al crear colegio', 'error');
-            } else {
-              setColegios([data[0], ...colegios]);
-              setIsModalOpen(false);
-              showToast('Colegio creado exitosamente', 'success');
-            }
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingColegio(null);
           }} 
+          onSave={handleSave}
+          initialData={editingColegio}
         />
       )}
     </div>
   );
 }
 
-function NewColegioModal({ onClose, onSave }: { onClose: () => void, onSave: (colegio: any) => void }) {
-  const [nombre, setNombre] = useState('');
-  const [deporte_principal, setDeportePrincipal] = useState('');
-  const [miembros, setMiembros] = useState('');
-  const [estado, setEstado] = useState('Activo');
+function NewColegioModal({ onClose, onSave, initialData }: { onClose: () => void, onSave: (colegio: any) => void, initialData?: any }) {
+  const [nombre, setNombre] = useState(initialData?.nombre || '');
+  const [deporte_principal, setDeportePrincipal] = useState(initialData?.deporte_principal || '');
+  const [miembros, setMiembros] = useState(initialData?.miembros?.toString() || '');
+  const [estado, setEstado] = useState(initialData?.estado || 'Activo');
   const [disciplines, setDisciplines] = useState<any[]>([]);
 
   useEffect(() => {
     supabase.from('disciplines').select('label').then(({ data }) => {
         if (data) {
             setDisciplines(data);
-            if (data.length > 0) setDeportePrincipal(data[0].label);
+            if (!initialData && data.length > 0) setDeportePrincipal(data[0].label);
         }
     });
-  }, []);
+  }, [initialData]);
 
   const handleSave = () => {
     if (!nombre || !miembros) return;
@@ -214,7 +249,7 @@ function NewColegioModal({ onClose, onSave }: { onClose: () => void, onSave: (co
     <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-          <h3 className="text-lg font-semibold text-gray-900">Nuevo Colegio</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{initialData ? 'Editar Colegio' : 'Nuevo Colegio'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-500 p-1 rounded-full hover:bg-gray-100 transition-colors">
             <X className="w-5 h-5" />
           </button>
@@ -226,6 +261,7 @@ function NewColegioModal({ onClose, onSave }: { onClose: () => void, onSave: (co
             <input 
               type="text" 
               value={nombre}
+              id="school-name"
               onChange={(e) => setNombre(e.target.value)}
               placeholder="Ej: Colegio San Agustín"
               className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
@@ -278,7 +314,7 @@ function NewColegioModal({ onClose, onSave }: { onClose: () => void, onSave: (co
             disabled={!nombre || !miembros}
             className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm hover:shadow rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Guardar Colegio
+            {initialData ? 'Guardar Cambios' : 'Guardar Colegio'}
           </button>
         </div>
       </div>

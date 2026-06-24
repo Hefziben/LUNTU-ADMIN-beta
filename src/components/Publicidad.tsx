@@ -11,8 +11,10 @@ export function Publicidad() {
   const [loading, setLoading] = useState(true);
   const [isAIOpen, setIsAIOpen] = useState(false);
   const [isNewBannerOpen, setIsNewBannerOpen] = useState(false);
+  const [editingBanner, setEditingBanner] = useState<any>(null);
   const [isRequestsOpen, setIsRequestsOpen] = useState(false);
   const [isNewClientOpen, setIsNewClientOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<any>(null);
 
   useEffect(() => {
     fetchData();
@@ -36,6 +38,64 @@ export function Publicidad() {
     if (window.confirm('¿Estás seguro de eliminar esta campaña?')) {
       const { error } = await supabase.from('publicidad_campanas').delete().eq('id', id);
       if (!error) setBanners(banners.filter(b => b.id !== id));
+    }
+  };
+
+  const handleEditBanner = (banner: any) => {
+    setEditingBanner(banner);
+    setIsNewBannerOpen(true);
+  };
+
+  const handleSaveBanner = async (newBanner: any) => {
+    if (editingBanner) {
+      const { data, error } = await supabase
+        .from('publicidad_campanas')
+        .update(newBanner)
+        .eq('id', editingBanner.id)
+        .select('*, publicidad_clientes(nombre)');
+      if (!error && data) {
+        setBanners(banners.map(b => b.id === editingBanner.id ? data[0] : b));
+        setIsNewBannerOpen(false);
+        setEditingBanner(null);
+      }
+    } else {
+      const { data, error } = await supabase
+        .from('publicidad_campanas')
+        .insert([{ ...newBanner, gastado: 0, estado: 'Programado' }])
+        .select('*, publicidad_clientes(nombre)');
+      if (!error && data) {
+        setBanners([data[0], ...banners]);
+        setIsNewBannerOpen(false);
+      }
+    }
+  };
+
+  const handleEditClient = (client: any) => {
+    setEditingClient(client);
+    setIsNewClientOpen(true);
+  };
+
+  const handleSaveClient = async (newClient: any) => {
+    if (editingClient) {
+      const { data, error } = await supabase
+        .from('publicidad_clientes')
+        .update(newClient)
+        .eq('id', editingClient.id)
+        .select();
+      if (!error && data) {
+        setClients(clients.map(c => c.id === editingClient.id ? data[0] : c));
+        setIsNewClientOpen(false);
+        setEditingClient(null);
+      }
+    } else {
+      const { data, error } = await supabase
+        .from('publicidad_clientes')
+        .insert([newClient])
+        .select();
+      if (!error && data) {
+        setClients([data[0], ...clients]);
+        setIsNewClientOpen(false);
+      }
     }
   };
 
@@ -69,7 +129,10 @@ export function Publicidad() {
             AI Image Editor
           </button>
           <button 
-            onClick={() => setIsNewBannerOpen(true)}
+            onClick={() => {
+                setEditingBanner(null);
+                setIsNewBannerOpen(true);
+            }}
             className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
@@ -152,12 +215,15 @@ export function Publicidad() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
-                          <button className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50" title="Editar Campaña">
+                          <button
+                            onClick={() => handleEditBanner(banner)}
+                            className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 edit-btn" title="Editar Campaña"
+                          >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(banner.id)}
-                            className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
+                            className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 delete-btn"
                             title="Eliminar Campaña"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -197,7 +263,10 @@ export function Publicidad() {
             <div className="p-6 border-b border-gray-200 flex justify-between items-center">
               <h3 className="text-lg font-semibold text-gray-900">Lista de Clientes</h3>
               <button
-                onClick={() => setIsNewClientOpen(true)}
+                onClick={() => {
+                    setEditingClient(null);
+                    setIsNewClientOpen(true);
+                }}
                 className="text-indigo-600 font-medium hover:text-indigo-700 flex items-center gap-2 text-sm"
               >
                 <Plus className="w-4 h-4" />
@@ -237,7 +306,10 @@ export function Publicidad() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
-                          <button className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50" title="Editar Cliente">
+                          <button
+                            onClick={() => handleEditClient(client)}
+                            className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors edit-btn" title="Editar Cliente"
+                          >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
@@ -247,7 +319,7 @@ export function Publicidad() {
                                 if (!error) setClients(clients.filter(c => c.id !== client.id));
                               }
                             }}
-                            className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
+                            className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors delete-btn"
                             title="Eliminar Cliente"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -277,17 +349,12 @@ export function Publicidad() {
       {isNewBannerOpen && (
         <NewBannerModal 
           clients={clients}
-          onClose={() => setIsNewBannerOpen(false)} 
-          onSave={async (newBanner) => {
-            const { data, error } = await supabase
-              .from('publicidad_campanas')
-              .insert([{ ...newBanner, gastado: 0, estado: 'Programado' }])
-              .select('*, publicidad_clientes(nombre)');
-            if (!error && data) {
-              setBanners([data[0], ...banners]);
-              setIsNewBannerOpen(false);
-            }
+          onClose={() => {
+            setIsNewBannerOpen(false);
+            setEditingBanner(null);
           }} 
+          onSave={handleSaveBanner}
+          initialData={editingBanner}
         />
       )}
 
@@ -302,27 +369,22 @@ export function Publicidad() {
 
       {isNewClientOpen && (
         <NewClientModal 
-          onClose={() => setIsNewClientOpen(false)} 
-          onSave={async (newClient) => {
-            const { data, error } = await supabase
-              .from('publicidad_clientes')
-              .insert([newClient])
-              .select();
-            if (!error && data) {
-              setClients([data[0], ...clients]);
-              setIsNewClientOpen(false);
-            }
+          onClose={() => {
+            setIsNewClientOpen(false);
+            setEditingClient(null);
           }} 
+          onSave={handleSaveClient}
+          initialData={editingClient}
         />
       )}
     </div>
   );
 }
 
-function NewClientModal({ onClose, onSave }: { onClose: () => void, onSave: (client: any) => void }) {
-  const [nombre, setNombre] = useState('');
-  const [email, setEmail] = useState('');
-  const [telefono, setTelefono] = useState('');
+function NewClientModal({ onClose, onSave, initialData }: { onClose: () => void, onSave: (client: any) => void, initialData?: any }) {
+  const [nombre, setNombre] = useState(initialData?.nombre || '');
+  const [email, setEmail] = useState(initialData?.email || '');
+  const [telefono, setTelefono] = useState(initialData?.telefono || '');
 
   const handleSave = () => {
     if (!nombre || !email) return;
@@ -330,9 +392,9 @@ function NewClientModal({ onClose, onSave }: { onClose: () => void, onSave: (cli
       nombre,
       email,
       telefono,
-      campanas_totales: 0,
-      inversion_total: 0,
-      estado: 'Activo'
+      campanas_totales: initialData?.campanas_totales || 0,
+      inversion_total: initialData?.inversion_total || 0,
+      estado: initialData?.estado || 'Activo'
     });
   };
 
@@ -340,7 +402,7 @@ function NewClientModal({ onClose, onSave }: { onClose: () => void, onSave: (cli
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
         <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-          <h3 className="text-xl font-bold text-gray-900">Nuevo Cliente</h3>
+          <h3 className="text-xl font-bold text-gray-900">{initialData ? 'Editar Cliente' : 'Nuevo Cliente'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />
           </button>
@@ -352,6 +414,7 @@ function NewClientModal({ onClose, onSave }: { onClose: () => void, onSave: (cli
             <input 
               type="text" 
               value={nombre}
+              id="client-name"
               onChange={(e) => setNombre(e.target.value)}
               placeholder="Ej: Empresa S.A."
               className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
@@ -393,7 +456,7 @@ function NewClientModal({ onClose, onSave }: { onClose: () => void, onSave: (cli
             disabled={!nombre || !email}
             className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Guardar Cliente
+            {initialData ? 'Guardar Cambios' : 'Guardar Cliente'}
           </button>
         </div>
       </div>
@@ -401,15 +464,15 @@ function NewClientModal({ onClose, onSave }: { onClose: () => void, onSave: (cli
   );
 }
 
-function NewBannerModal({ onClose, onSave, clients }: { onClose: () => void, onSave: (banner: any) => void, clients: any[] }) {
-  const [titulo, setTitulo] = useState('');
-  const [cliente_id, setClienteId] = useState('');
-  const [fecha_inicio, setFechaInicio] = useState('');
-  const [fecha_fin, setFechaFin] = useState('');
-  const [dimensiones, setDimensiones] = useState('1080x1080');
-  const [presupuesto, setPresupuesto] = useState('');
-  const [ingresos, setIngresos] = useState('');
-  const [imagen_url, setImagenUrl] = useState<string | null>(null);
+function NewBannerModal({ onClose, onSave, clients, initialData }: { onClose: () => void, onSave: (banner: any) => void, clients: any[], initialData?: any }) {
+  const [titulo, setTitulo] = useState(initialData?.titulo || '');
+  const [cliente_id, setClienteId] = useState(initialData?.cliente_id?.toString() || '');
+  const [fecha_inicio, setFechaInicio] = useState(initialData?.fecha_inicio || '');
+  const [fecha_fin, setFechaFin] = useState(initialData?.fecha_fin || '');
+  const [dimensiones, setDimensiones] = useState(initialData?.dimensiones || '1080x1080');
+  const [presupuesto, setPresupuesto] = useState(initialData?.presupuesto?.toString() || '');
+  const [ingresos, setIngresos] = useState(initialData?.ingresos?.toString() || '');
+  const [imagen_url, setImagenUrl] = useState<string | null>(initialData?.imagen_url || null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -432,7 +495,9 @@ function NewBannerModal({ onClose, onSave, clients }: { onClose: () => void, onS
       dimensiones,
       presupuesto: parseFloat(presupuesto),
       ingresos: ingresos ? parseFloat(ingresos) : 0,
-      imagen_url
+      imagen_url,
+      gastado: initialData?.gastado || 0,
+      estado: initialData?.estado || 'Programado'
     });
   };
 
@@ -440,7 +505,7 @@ function NewBannerModal({ onClose, onSave, clients }: { onClose: () => void, onS
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-          <h3 className="text-xl font-bold text-gray-900">Crear Nueva Campaña</h3>
+          <h3 className="text-xl font-bold text-gray-900">{initialData ? 'Editar Campaña' : 'Crear Nueva Campaña'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />
           </button>
@@ -454,7 +519,7 @@ function NewBannerModal({ onClose, onSave, clients }: { onClose: () => void, onS
                 <select 
                   value={cliente_id}
                   onChange={(e) => setClienteId(e.target.value)}
-                  className="flex-1 border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  className="flex-1 border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white"
                 >
                   <option value="">Seleccionar Cliente...</option>
                   {clients.map(c => (
@@ -469,6 +534,7 @@ function NewBannerModal({ onClose, onSave, clients }: { onClose: () => void, onS
               <input 
                 type="text" 
                 value={titulo}
+                id="campaign-title"
                 onChange={(e) => setTitulo(e.target.value)}
                 placeholder="Ej: Campaña Verano 2026"
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
@@ -500,7 +566,7 @@ function NewBannerModal({ onClose, onSave, clients }: { onClose: () => void, onS
               <select 
                 value={dimensiones}
                 onChange={(e) => setDimensiones(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white"
               >
                 <option value="1080x1080">Feed Cuadrado (1080x1080)</option>
                 <option value="1080x1920">Stories / Reels (1080x1920)</option>
@@ -575,7 +641,7 @@ function NewBannerModal({ onClose, onSave, clients }: { onClose: () => void, onS
             disabled={!titulo || !fecha_inicio || !fecha_fin || !presupuesto || !imagen_url || !cliente_id}
             className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Crear Campaña
+            {initialData ? 'Guardar Cambios' : 'Crear Campaña'}
           </button>
         </div>
       </div>

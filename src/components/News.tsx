@@ -6,6 +6,7 @@ export function News() {
   const [news, setNews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingNews, setEditingNews] = useState<any>(null);
 
   useEffect(() => {
     fetchNews();
@@ -33,6 +34,32 @@ export function News() {
     }
   };
 
+  const handleEdit = (item: any) => {
+    setEditingNews(item);
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (newItem: any) => {
+    if (editingNews) {
+      const { data, error } = await supabase
+        .from('news')
+        .update(newItem)
+        .eq('id', editingNews.id)
+        .select();
+      if (!error && data) {
+        setNews(news.map(n => n.id === editingNews.id ? data[0] : n));
+        setIsModalOpen(false);
+        setEditingNews(null);
+      }
+    } else {
+      const { data, error } = await supabase.from('news').insert([newItem]).select();
+      if (!error && data) {
+        setNews([data[0], ...news]);
+        setIsModalOpen(false);
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -41,7 +68,10 @@ export function News() {
           <p className="text-gray-500 text-sm mt-1">Gestiona las noticias que aparecen en el feed de la aplicación.</p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setEditingNews(null);
+            setIsModalOpen(true);
+          }}
           className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
@@ -90,12 +120,15 @@ export function News() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
-                        <button className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50">
+                        <button
+                          onClick={() => handleEdit(item)}
+                          className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 edit-btn"
+                        >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(item.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
+                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 delete-btn"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -118,26 +151,24 @@ export function News() {
 
       {isModalOpen && (
         <NewNewsModal 
-          onClose={() => setIsModalOpen(false)} 
-          onSave={async (newItem) => {
-            const { data, error } = await supabase.from('news').insert([newItem]).select();
-            if (!error && data) {
-              setNews([data[0], ...news]);
-              setIsModalOpen(false);
-            }
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingNews(null);
           }} 
+          onSave={handleSave}
+          initialData={editingNews}
         />
       )}
     </div>
   );
 }
 
-function NewNewsModal({ onClose, onSave }: { onClose: () => void, onSave: (news: any) => void }) {
-  const [title, setTitle] = useState('');
-  const [tag, setTag] = useState('Nacional');
-  const [source, setSource] = useState('Lutu News');
-  const [content, setContent] = useState('');
-  const [image_url, setImageUrl] = useState<string | null>(null);
+function NewNewsModal({ onClose, onSave, initialData }: { onClose: () => void, onSave: (news: any) => void, initialData?: any }) {
+  const [title, setTitle] = useState(initialData?.title || '');
+  const [tag, setTag] = useState(initialData?.tag || 'Nacional');
+  const [source, setSource] = useState(initialData?.source || 'Lutu News');
+  const [content, setContent] = useState(initialData?.content || '');
+  const [image_url, setImageUrl] = useState<string | null>(initialData?.image_url || null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -158,7 +189,7 @@ function NewNewsModal({ onClose, onSave }: { onClose: () => void, onSave: (news:
         source,
         content,
         image_url,
-        time_ago: new Date().toLocaleDateString()
+        time_ago: initialData?.time_ago || new Date().toLocaleDateString()
     });
   };
 
@@ -166,7 +197,7 @@ function NewNewsModal({ onClose, onSave }: { onClose: () => void, onSave: (news:
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-          <h3 className="text-xl font-bold text-gray-900">Nueva Noticia</h3>
+          <h3 className="text-xl font-bold text-gray-900">{initialData ? 'Editar Noticia' : 'Nueva Noticia'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />
           </button>
@@ -178,6 +209,7 @@ function NewNewsModal({ onClose, onSave }: { onClose: () => void, onSave: (news:
             <input 
               type="text" 
               value={title}
+              id="news-title"
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Ej: Dominicana brilla en los Juegos..."
               className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
@@ -252,7 +284,7 @@ function NewNewsModal({ onClose, onSave }: { onClose: () => void, onSave: (news:
             disabled={!title || !image_url}
             className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Publicar Noticia
+            {initialData ? 'Guardar Cambios' : 'Publicar Noticia'}
           </button>
         </div>
       </div>
