@@ -249,6 +249,7 @@ function NewEntrevistaModal({ onClose, onSave, initialData }: { onClose: () => v
               <input 
                 type="text" 
                 value={titulo}
+                id="interview-title"
                 onChange={(e) => setTitulo(e.target.value)}
                 placeholder="Ej: El camino al éxito con Diego Martínez"
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
@@ -260,6 +261,7 @@ function NewEntrevistaModal({ onClose, onSave, initialData }: { onClose: () => v
               <input 
                 type="text" 
                 value={entrevistado}
+                id="interview-person"
                 onChange={(e) => setEntrevistado(e.target.value)}
                 placeholder="Ej: Diego Martínez"
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
@@ -271,6 +273,7 @@ function NewEntrevistaModal({ onClose, onSave, initialData }: { onClose: () => v
               <input 
                 type="date" 
                 value={fecha}
+                id="interview-date"
                 onChange={(e) => setFecha(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
               />

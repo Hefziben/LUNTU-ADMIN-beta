@@ -8,6 +8,7 @@ export function Categorias() {
   const [filter, setFilter] = useState('Todos');
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingCategoria, setEditingCategoria] = useState<any>(null);
 
   useEffect(() => {
     fetchCategorias();
@@ -18,7 +19,7 @@ export function Categorias() {
     const { data, error } = await supabase
       .from('categorias')
       .select('*')
-      .order('nombre', { ascending: true });
+      .order('created_at', { ascending: false });
 
     if (!error) {
       setCategorias(data || []);
@@ -35,6 +36,32 @@ export function Categorias() {
     }
   };
 
+  const handleEdit = (categoria: any) => {
+    setEditingCategoria(categoria);
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (newCat: any) => {
+    if (editingCategoria) {
+      const { data, error } = await supabase
+        .from('categorias')
+        .update(newCat)
+        .eq('id', editingCategoria.id)
+        .select();
+      if (!error && data) {
+        setCategorias(categorias.map(c => c.id === editingCategoria.id ? data[0] : c));
+        setIsModalOpen(false);
+        setEditingCategoria(null);
+      }
+    } else {
+      const { data, error } = await supabase.from('categorias').insert([newCat]).select();
+      if (!error && data) {
+        setCategorias([data[0], ...categorias]);
+        setIsModalOpen(false);
+      }
+    }
+  };
+
   const toggleExpand = (id: number) => {
     setExpandedId(expandedId === id ? null : id);
   };
@@ -47,7 +74,10 @@ export function Categorias() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Categorías Deportivas</h2>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setEditingCategoria(null);
+            setIsModalOpen(true);
+          }}
           className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
@@ -107,8 +137,8 @@ export function Categorias() {
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
                           <button
-                            onClick={(e) => { e.stopPropagation(); }}
-                            className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50"
+                            onClick={(e) => { e.stopPropagation(); handleEdit(categoria); }}
+                            className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 edit-category-btn"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
@@ -154,34 +184,32 @@ export function Categorias() {
 
       {isModalOpen && (
         <NewCategoriaModal 
-          onClose={() => setIsModalOpen(false)} 
-          onSave={async (newCat) => {
-            const { data, error } = await supabase.from('categorias').insert([newCat]).select();
-            if (!error && data) {
-              setCategorias([...categorias, data[0]]);
-              setIsModalOpen(false);
-            }
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingCategoria(null);
           }} 
+          onSave={handleSave}
+          initialData={editingCategoria}
         />
       )}
     </div>
   );
 }
 
-function NewCategoriaModal({ onClose, onSave }: { onClose: () => void, onSave: (cat: any) => void }) {
-  const [nombre, setNombre] = useState('');
-  const [deporte, setDeporte] = useState('');
-  const [atletas_count, setAtletasCount] = useState('');
+function NewCategoriaModal({ onClose, onSave, initialData }: { onClose: () => void, onSave: (cat: any) => void, initialData?: any }) {
+  const [nombre, setNombre] = useState(initialData?.nombre || '');
+  const [deporte, setDeporte] = useState(initialData?.deporte || '');
+  const [atletas_count, setAtletasCount] = useState(initialData?.atletas_count?.toString() || '');
   const [disciplines, setDisciplines] = useState<any[]>([]);
 
   useEffect(() => {
     supabase.from('disciplines').select('label').then(({ data }) => {
         if (data) {
             setDisciplines(data);
-            if (data.length > 0) setDeporte(data[0].label);
+            if (!initialData && data.length > 0) setDeporte(data[0].label);
         }
     });
-  }, []);
+  }, [initialData]);
 
   const handleSave = () => {
     if (!nombre) return;
@@ -192,7 +220,7 @@ function NewCategoriaModal({ onClose, onSave }: { onClose: () => void, onSave: (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
         <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-          <h3 className="text-xl font-bold text-gray-900">Nueva Categoría</h3>
+          <h3 className="text-xl font-bold text-gray-900">{initialData ? 'Editar Categoría' : 'Nueva Categoría'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />
           </button>
@@ -204,6 +232,7 @@ function NewCategoriaModal({ onClose, onSave }: { onClose: () => void, onSave: (
             <input 
               type="text" 
               value={nombre}
+              id="category-name"
               onChange={(e) => setNombre(e.target.value)}
               placeholder="Ej: Sub-15 Masculino"
               className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
@@ -215,7 +244,7 @@ function NewCategoriaModal({ onClose, onSave }: { onClose: () => void, onSave: (
             <select 
               value={deporte}
               onChange={(e) => setDeporte(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+              className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white"
             >
               {disciplines.map(d => (
                 <option key={d.label} value={d.label}>{d.label}</option>
@@ -244,7 +273,7 @@ function NewCategoriaModal({ onClose, onSave }: { onClose: () => void, onSave: (
             disabled={!nombre}
             className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Guardar Categoría
+            {initialData ? 'Guardar Cambios' : 'Guardar Categoría'}
           </button>
         </div>
       </div>
