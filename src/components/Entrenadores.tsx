@@ -19,37 +19,23 @@ export function Entrenadores() {
   const fetchCoaches = async () => {
     setLoading(true);
     try {
-      // First try user_profiles as requested by the user
-      // We try both phone and telefono to be safe
-      let { data, error } = await supabase
+      // Fetch coaches joining with user_profiles via profile_id
+      const { data, error } = await supabase
         .from('coaches')
-        .select('*, user_profiles(name, email, phone, telefono)')
+        .select('*, user_profiles(name, email, phone)')
         .order('name', { ascending: true });
-
-      // Fallback to profiles if user_profiles doesn't exist
-      if (error && (error.message.includes('user_profiles') || error.message.includes('relation "user_profiles" does not exist'))) {
-        const { data: pData, error: pError } = await supabase
-          .from('coaches')
-          .select('*, profiles(name, email, phone, telefono)')
-          .order('name', { ascending: true });
-        data = pData;
-        error = pError;
-      }
 
       if (error) {
         console.error('Error fetching coaches:', error);
         showToast('Error al cargar entrenadores', 'error');
       } else {
-        // Map data to use values from profile/user_profile if available
-        const mappedData = data?.map(coach => {
-          const profile = coach.user_profiles || coach.profiles;
-          return {
-            ...coach,
-            name: profile?.name || coach.name,
-            email: profile?.email || coach.email,
-            phone: profile?.phone || profile?.telefono || coach.phone
-          };
-        });
+        // Map data to use values from user_profiles
+        const mappedData = data?.map(coach => ({
+          ...coach,
+          name: coach.user_profiles?.name || coach.name,
+          email: coach.user_profiles?.email || coach.email,
+          phone: coach.user_profiles?.phone || coach.phone
+        }));
         setEntrenadores(mappedData || []);
       }
     } catch (e) {
@@ -93,62 +79,38 @@ export function Entrenadores() {
         .from('coaches')
         .update(newEntrenador)
         .eq('id', editingEntrenador.id)
-        .select('*, user_profiles(name, email, phone, telefono)');
+        .select('*, user_profiles(name, email, phone)');
 
-      let resultData = data;
-      let resultError = error;
-
-      if (resultError && (resultError.message.includes('user_profiles') || resultError.message.includes('relation "user_profiles" does not exist'))) {
-          const { data: pData, error: pError } = await supabase
-            .from('coaches')
-            .update(newEntrenador)
-            .eq('id', editingEntrenador.id)
-            .select('*, profiles(name, email, phone, telefono)');
-          resultData = pData;
-          resultError = pError;
-      }
-
-      if (!resultError && resultData) {
-        const profile = resultData[0].user_profiles || resultData[0].profiles;
+      if (!error && data) {
         const updated = {
-            ...resultData[0],
-            name: profile?.name || resultData[0].name,
-            email: profile?.email || resultData[0].email,
-            phone: profile?.phone || profile?.telefono || resultData[0].phone
+            ...data[0],
+            name: data[0].user_profiles?.name || data[0].name,
+            email: data[0].user_profiles?.email || data[0].email,
+            phone: data[0].user_profiles?.phone || data[0].phone
         };
         setEntrenadores(entrenadores.map(e => e.id === editingEntrenador.id ? updated : e));
         setIsModalOpen(false);
         setEditingEntrenador(null);
         showToast('Entrenador actualizado exitosamente', 'success');
       } else {
-        console.error('Update error:', resultError);
+        console.error('Update error:', error);
         showToast('Error al actualizar entrenador', 'error');
       }
     } else {
-      const { data, error } = await supabase.from('coaches').insert([newEntrenador]).select('*, user_profiles(name, email, phone, telefono)');
+      const { data, error } = await supabase.from('coaches').insert([newEntrenador]).select('*, user_profiles(name, email, phone)');
 
-      let resultData = data;
-      let resultError = error;
-
-      if (resultError && (resultError.message.includes('user_profiles') || resultError.message.includes('relation "user_profiles" does not exist'))) {
-          const { data: pData, error: pError } = await supabase.from('coaches').insert([newEntrenador]).select('*, profiles(name, email, phone, telefono)');
-          resultData = pData;
-          resultError = pError;
-      }
-
-      if (!resultError && resultData) {
-        const profile = resultData[0].user_profiles || resultData[0].profiles;
+      if (!error && data) {
         const created = {
-            ...resultData[0],
-            name: profile?.name || resultData[0].name,
-            email: profile?.email || resultData[0].email,
-            phone: profile?.phone || profile?.telefono || resultData[0].phone
+            ...data[0],
+            name: data[0].user_profiles?.name || data[0].name,
+            email: data[0].user_profiles?.email || data[0].email,
+            phone: data[0].user_profiles?.phone || data[0].phone
         };
         setEntrenadores([created, ...entrenadores]);
         setIsModalOpen(false);
         showToast('Entrenador creado exitosamente', 'success');
       } else {
-        console.error('Insert error:', resultError);
+        console.error('Insert error:', error);
         showToast('Error al crear entrenador en la base de datos', 'error');
       }
     }

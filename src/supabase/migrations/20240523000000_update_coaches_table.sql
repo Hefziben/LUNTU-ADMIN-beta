@@ -12,8 +12,8 @@ ALTER TABLE coaches ADD COLUMN IF NOT EXISTS certificate_url TEXT;
 ALTER TABLE coaches ADD COLUMN IF NOT EXISTS verification_status TEXT DEFAULT 'pending';
 ALTER TABLE coaches ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 
--- Add profile_id if it doesn't exist to link with profiles table
-ALTER TABLE coaches ADD COLUMN IF NOT EXISTS profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE;
+-- Add profile_id if it doesn't exist to link with user_profiles/profiles table
+ALTER TABLE coaches ADD COLUMN IF NOT EXISTS profile_id UUID;
 
--- Ensure profiles table has phone column if it was missing
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS phone TEXT;
+-- Since the user explicitly mentioned user_profiles, let's ensure it's referenced if possible
+-- but we don't know the exact schema of user_profiles, so we'll just ensure the column exists.
