@@ -22,8 +22,11 @@ export function Entrenadores() {
       // Fetch coaches joining with user_profiles via profile_id
       const { data, error } = await supabase
         .from('coaches')
-        .select('*, user_profiles(name, email, phone)')
+        .select('*, user_profiles(name, email, phone,bio)')
         .order('name', { ascending: true });
+
+        console.log('coaches', data);
+        
 
       if (error) {
         console.error('Error fetching coaches:', error);
@@ -34,7 +37,8 @@ export function Entrenadores() {
           ...coach,
           name: coach.user_profiles?.name || coach.name,
           email: coach.user_profiles?.email || coach.email,
-          phone: coach.user_profiles?.phone || coach.phone
+          phone: coach.user_profiles?.phone,
+          bio: coach.user_profiles?.bio
         }));
         setEntrenadores(mappedData || []);
       }
@@ -79,14 +83,15 @@ export function Entrenadores() {
         .from('coaches')
         .update(newEntrenador)
         .eq('id', editingEntrenador.id)
-        .select('*, user_profiles(name, email, phone)');
+        .select('*, user_profiles(name, email, phone,bio)');
 
       if (!error && data) {
         const updated = {
             ...data[0],
             name: data[0].user_profiles?.name || data[0].name,
             email: data[0].user_profiles?.email || data[0].email,
-            phone: data[0].user_profiles?.phone || data[0].phone
+            phone: data[0].user_profiles?.phone || data[0].phone,
+            bio: data[0].user_profiles?.bio
         };
         setEntrenadores(entrenadores.map(e => e.id === editingEntrenador.id ? updated : e));
         setIsModalOpen(false);
@@ -97,14 +102,15 @@ export function Entrenadores() {
         showToast('Error al actualizar entrenador', 'error');
       }
     } else {
-      const { data, error } = await supabase.from('coaches').insert([newEntrenador]).select('*, user_profiles(name, email, phone)');
+      const { data, error } = await supabase.from('coaches').insert([newEntrenador]).select('*, user_profiles(name, email, phone,bio)');
 
       if (!error && data) {
         const created = {
             ...data[0],
             name: data[0].user_profiles?.name || data[0].name,
             email: data[0].user_profiles?.email || data[0].email,
-            phone: data[0].user_profiles?.phone || data[0].phone
+            phone: data[0].user_profiles?.phone || data[0].phone,
+             bio: data[0].user_profiles?.bio
         };
         setEntrenadores([created, ...entrenadores]);
         setIsModalOpen(false);
