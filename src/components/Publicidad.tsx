@@ -61,7 +61,7 @@ export function Publicidad() {
     } else {
       const { data, error } = await supabase
         .from('publicidad_campanas')
-        .insert([{ ...newBanner, gastado: 0, estado: 'Programado' }])
+        .insert([{ ...newBanner, gastado: 0 }])
         .select('*, publicidad_clientes(nombre)');
       if (!error && data) {
         setBanners([data[0], ...banners]);
@@ -208,7 +208,9 @@ export function Publicidad() {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                          banner.estado === 'Activo' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                          banner.estado === 'Activo' ? 'bg-emerald-100 text-emerald-800' :
+                          banner.estado === 'Inactivo' ? 'bg-red-100 text-red-800' :
+                          'bg-amber-100 text-amber-800'
                         }`}>
                           {banner.estado}
                         </span>
@@ -472,6 +474,7 @@ function NewBannerModal({ onClose, onSave, clients, initialData }: { onClose: ()
   const [dimensiones, setDimensiones] = useState(initialData?.dimensiones || '1080x1080');
   const [presupuesto, setPresupuesto] = useState(initialData?.presupuesto?.toString() || '');
   const [ingresos, setIngresos] = useState(initialData?.ingresos?.toString() || '');
+  const [estado, setEstado] = useState(initialData?.estado || 'Programado');
   const [imagen_url, setImagenUrl] = useState<string | null>(initialData?.imagen_url || null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -497,7 +500,7 @@ function NewBannerModal({ onClose, onSave, clients, initialData }: { onClose: ()
       ingresos: ingresos ? parseFloat(ingresos) : 0,
       imagen_url,
       gastado: initialData?.gastado || 0,
-      estado: initialData?.estado || 'Programado'
+      estado
     });
   };
 
@@ -589,6 +592,19 @@ function NewBannerModal({ onClose, onSave, clients, initialData }: { onClose: ()
                   className="w-full border border-gray-300 rounded-lg py-2.5 pl-9 pr-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">Estado de la Campaña</label>
+              <select
+                value={estado}
+                onChange={(e) => setEstado(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white"
+              >
+                <option value="Activo">Activo</option>
+                <option value="Programado">Programado</option>
+                <option value="Inactivo">Inactivo</option>
+              </select>
             </div>
 
             <div className="space-y-2">
